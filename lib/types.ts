@@ -31,6 +31,37 @@ export interface PlayerProfile {
   attributes: AttributeSet
 }
 
+export type Surface = "hard" | "clay" | "grass"
+
+export type Division = "grand-slam" | "masters" | "tour" | "challenger" | "futures"
+
+export interface Rival {
+  id: string
+  tour: Tour
+  firstName: string
+  lastName: string
+  nationality: string
+  age: number
+  handedness: Handedness
+  backhand: Backhand
+  height: number
+  weight: number
+  playStyle: PlayStyle
+  attributes: AttributeSet
+  overall: number
+  rank: number
+  points: number
+  favSurface: Surface
+  // 0 (iron man) to 100 (extremely fragile) — tendency to pick up injuries.
+  injuryProneness: number
+}
+
+export const SURFACE_LABELS: Record<Surface, string> = {
+  hard: "Dura",
+  clay: "Polvo de ladrillo",
+  grass: "Césped",
+}
+
 export const PLAY_STYLES: {
   id: PlayStyle
   label: string

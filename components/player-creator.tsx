@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { Minus, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { computeAttributes } from "@/lib/attributes"
+import { AttributeBars } from "@/components/attribute-bars"
+import { computeAttributes, computeOverall } from "@/lib/attributes"
 import {
   NATIONALITIES,
   PLAY_STYLES,
@@ -80,6 +82,68 @@ function OptionCard({
   )
 }
 
+function StepperSlider({
+  label,
+  unit,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+}: {
+  label: string
+  unit: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (v: number) => void
+}) {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v))
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <Label>{label}</Label>
+        <span className="font-mono text-lg font-bold">
+          {value} {unit}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="size-9 shrink-0 bg-transparent"
+          onClick={() => onChange(clamp(value - step))}
+          disabled={value <= min}
+          aria-label={`Disminuir ${label}`}
+        >
+          <Minus className="size-4" />
+        </Button>
+        <Slider
+          className="flex-1"
+          value={[value]}
+          min={min}
+          max={max}
+          step={step}
+          onValueChange={([v]) => onChange(v)}
+        />
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="size-9 shrink-0 bg-transparent"
+          onClick={() => onChange(clamp(value + step))}
+          disabled={value >= max}
+          aria-label={`Aumentar ${label}`}
+        >
+          <Plus className="size-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function PlayerCreator({
   onComplete,
 }: {
@@ -116,22 +180,34 @@ export function PlayerCreator({
     }
   }, [step, draft])
 
-  // Live preview attributes (depends on style being chosen)
-  const previewAttrs = useMemo(() => {
-    if (!draft.playStyle) return null
-    return computeAttributes({
-      tour: draft.tour,
-      playStyle: draft.playStyle,
-      height: draft.height,
-      weight: draft.weight,
-      age: draft.age,
-      handedness: draft.handedness,
-      backhand: draft.backhand,
-    })
-  }, [draft])
+  // Effective style for the live preview: fall back to a neutral "all-around"
+  // baseline until the player actually picks a style.
+  const effectiveStyle: PlayStyle = draft.playStyle ?? "all-around"
+
+  const previewAttrs = useMemo(
+    () =>
+      computeAttributes({
+        tour: draft.tour,
+        playStyle: effectiveStyle,
+        height: draft.height,
+        weight: draft.weight,
+        age: draft.age,
+        handedness: draft.handedness,
+        backhand: draft.backhand,
+      }),
+    [draft, effectiveStyle],
+  )
+
+  const previewOverall = useMemo(
+    () => computeOverall(previewAttrs, effectiveStyle),
+    [previewAttrs, effectiveStyle],
+  )
+
+  const nat = NATIONALITIES.find((n) => n.code === draft.nationality)
+  const styleLabel = PLAY_STYLES.find((s) => s.id === draft.playStyle)?.label
 
   function finish() {
-    if (!draft.playStyle || !previewAttrs) return
+    if (!draft.playStyle) return
     onComplete({
       tour: draft.tour,
       firstName: draft.firstName.trim(),
@@ -148,226 +224,277 @@ export function PlayerCreator({
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
-      {/* Step indicator */}
-      <div className="mb-8 flex items-center gap-2">
-        {STEPS.map((label, i) => (
-          <div key={label} className="flex flex-1 flex-col gap-1.5">
-            <div
-              className={cn(
-                "h-1 rounded-full transition-colors",
-                i <= step ? "bg-primary" : "bg-muted",
-              )}
-            />
-            <span
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-widest",
-                i === step ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="min-h-[340px]">
-        {/* STEP 0 - Tour */}
-        {step === 0 && (
-          <div>
-            <h2 className="text-3xl font-extrabold uppercase tracking-tight">Elegí tu circuito</h2>
-            <p className="mt-1 text-muted-foreground">¿En qué tour vas a forjar tu carrera?</p>
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <OptionCard
-                active={draft.tour === "ATP"}
-                onClick={() => setTour("ATP")}
-                title="ATP"
-                subtitle="Circuito masculino"
+    <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[1fr_340px]">
+      {/* LEFT: wizard */}
+      <div>
+        {/* Step indicator */}
+        <div className="mb-8 flex items-center gap-2">
+          {STEPS.map((label, i) => (
+            <div key={label} className="flex flex-1 flex-col gap-1.5">
+              <div
+                className={cn(
+                  "h-1 rounded-full transition-colors",
+                  i <= step ? "bg-primary" : "bg-muted",
+                )}
               />
-              <OptionCard
-                active={draft.tour === "WTA"}
-                onClick={() => setTour("WTA")}
-                title="WTA"
-                subtitle="Circuito femenino"
-              />
+              <span
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-widest",
+                  i === step ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                {label}
+              </span>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
 
-        {/* STEP 1 - Identity */}
-        {step === 1 && (
-          <div className="space-y-5">
+        <div className="min-h-[340px]">
+          {/* STEP 0 - Tour */}
+          {step === 0 && (
             <div>
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight">Identidad</h2>
-              <p className="mt-1 text-muted-foreground">Nombre y nacionalidad de tu jugador.</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Nombre</Label>
-                <Input
-                  id="firstName"
-                  value={draft.firstName}
-                  onChange={(e) => set("firstName", e.target.value)}
-                  placeholder="Carlos"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Apellido</Label>
-                <Input
-                  id="lastName"
-                  value={draft.lastName}
-                  onChange={(e) => set("lastName", e.target.value)}
-                  placeholder="Gómez"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Nacionalidad</Label>
-              <Select value={draft.nationality} onValueChange={(v) => set("nationality", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {NATIONALITIES.map((n) => (
-                    <SelectItem key={n.code} value={n.code}>
-                      {n.flag} {n.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2 - Game (handedness / backhand) */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight">Empuñadura</h2>
-              <p className="mt-1 text-muted-foreground">Mano hábil y tipo de revés.</p>
-            </div>
-            <div>
-              <Label className="mb-3 block">Mano hábil</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <OptionCard active={draft.handedness === "right"} onClick={() => set("handedness", "right")} title="Diestro" />
-                <OptionCard active={draft.handedness === "left"} onClick={() => set("handedness", "left")} title="Zurdo" />
-              </div>
-            </div>
-            <div>
-              <Label className="mb-3 block">Revés</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <h2 className="text-3xl font-extrabold uppercase tracking-tight">Elegí tu circuito</h2>
+              <p className="mt-1 text-muted-foreground">¿En qué tour vas a forjar tu carrera?</p>
+              <div className="mt-6 grid grid-cols-2 gap-4">
                 <OptionCard
-                  active={draft.backhand === "two"}
-                  onClick={() => set("backhand", "two")}
-                  title="Dos manos"
-                  subtitle="Más sólido y consistente"
+                  active={draft.tour === "ATP"}
+                  onClick={() => setTour("ATP")}
+                  title="ATP"
+                  subtitle="Circuito masculino"
                 />
                 <OptionCard
-                  active={draft.backhand === "one"}
-                  onClick={() => set("backhand", "one")}
-                  title="Una mano"
-                  subtitle="Más alcance, slice y volea"
+                  active={draft.tour === "WTA"}
+                  onClick={() => setTour("WTA")}
+                  title="WTA"
+                  subtitle="Circuito femenino"
                 />
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* STEP 3 - Physique */}
-        {step === 3 && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight">Físico</h2>
-              <p className="mt-1 text-muted-foreground">Altura, peso y edad (16-20).</p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <Label>Altura</Label>
-                <span className="font-mono text-lg font-bold">{draft.height} cm</span>
+          {/* STEP 1 - Identity */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-3xl font-extrabold uppercase tracking-tight">Identidad</h2>
+                <p className="mt-1 text-muted-foreground">Nombre y nacionalidad de tu jugador.</p>
               </div>
-              <Slider
-                value={[draft.height]}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">Nombre</Label>
+                  <Input
+                    id="firstName"
+                    value={draft.firstName}
+                    onChange={(e) => set("firstName", e.target.value)}
+                    placeholder="Carlos"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Apellido</Label>
+                  <Input
+                    id="lastName"
+                    value={draft.lastName}
+                    onChange={(e) => set("lastName", e.target.value)}
+                    placeholder="Gómez"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Nacionalidad</Label>
+                <Select value={draft.nationality} onValueChange={(v) => set("nationality", v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {NATIONALITIES.map((n) => (
+                      <SelectItem key={n.code} value={n.code}>
+                        {n.flag} {n.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2 - Game (handedness / backhand) */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-3xl font-extrabold uppercase tracking-tight">Empuñadura</h2>
+                <p className="mt-1 text-muted-foreground">Mano hábil y tipo de revés.</p>
+              </div>
+              <div>
+                <Label className="mb-3 block">Mano hábil</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <OptionCard active={draft.handedness === "right"} onClick={() => set("handedness", "right")} title="Diestro" />
+                  <OptionCard active={draft.handedness === "left"} onClick={() => set("handedness", "left")} title="Zurdo" />
+                </div>
+              </div>
+              <div>
+                <Label className="mb-3 block">Revés</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <OptionCard
+                    active={draft.backhand === "two"}
+                    onClick={() => set("backhand", "two")}
+                    title="Dos manos"
+                    subtitle="Más sólido y consistente"
+                  />
+                  <OptionCard
+                    active={draft.backhand === "one"}
+                    onClick={() => set("backhand", "one")}
+                    title="Una mano"
+                    subtitle="Más alcance, slice y volea"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3 - Physique */}
+          {step === 3 && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-3xl font-extrabold uppercase tracking-tight">Físico</h2>
+                <p className="mt-1 text-muted-foreground">Altura, peso y edad (16-20). Mové la barra o usá los botones.</p>
+              </div>
+              <StepperSlider
+                label="Altura"
+                unit="cm"
+                value={draft.height}
                 min={heightRange[0]}
                 max={heightRange[1]}
-                step={1}
-                onValueChange={([v]) => set("height", v)}
+                onChange={(v) => set("height", v)}
               />
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <Label>Peso</Label>
-                <span className="font-mono text-lg font-bold">{draft.weight} kg</span>
-              </div>
-              <Slider
-                value={[draft.weight]}
+              <StepperSlider
+                label="Peso"
+                unit="kg"
+                value={draft.weight}
                 min={weightRange[0]}
                 max={weightRange[1]}
-                step={1}
-                onValueChange={([v]) => set("weight", v)}
+                onChange={(v) => set("weight", v)}
               />
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <Label>Edad</Label>
-                <span className="font-mono text-lg font-bold">{draft.age} años</span>
-              </div>
-              <Slider
-                value={[draft.age]}
+              <StepperSlider
+                label="Edad"
+                unit="años"
+                value={draft.age}
                 min={16}
                 max={20}
-                step={1}
-                onValueChange={([v]) => set("age", v)}
+                onChange={(v) => set("age", v)}
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* STEP 4 - Play style */}
-        {step === 4 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight">Estilo de juego</h2>
-              <p className="mt-1 text-muted-foreground">Define cómo dominás la cancha.</p>
+          {/* STEP 4 - Play style */}
+          {step === 4 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-3xl font-extrabold uppercase tracking-tight">Estilo de juego</h2>
+                <p className="mt-1 text-muted-foreground">Define cómo dominás la cancha. Mirá cómo cambian tus atributos.</p>
+              </div>
+              <div className="grid gap-3">
+                {PLAY_STYLES.map((s) => (
+                  <OptionCard
+                    key={s.id}
+                    active={draft.playStyle === s.id}
+                    onClick={() => set("playStyle", s.id)}
+                    title={s.label}
+                    subtitle={s.description}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="grid gap-3">
-              {PLAY_STYLES.map((s) => (
-                <OptionCard
-                  key={s.id}
-                  active={draft.playStyle === s.id}
-                  onClick={() => set("playStyle", s.id)}
-                  title={s.label}
-                  subtitle={s.description}
-                />
-              ))}
+          )}
+        </div>
+
+        {/* Nav */}
+        <div className="mt-8 flex items-center justify-between gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+          >
+            Atrás
+          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed}>
+              Continuar
+            </Button>
+          ) : (
+            <Button onClick={finish} disabled={!canProceed}>
+              Crear jugador
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* RIGHT: live preview */}
+      <aside className="lg:sticky lg:top-6 lg:self-start">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Vista previa
+            </span>
+            <span className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              {draft.tour}
+            </span>
+          </div>
+
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex size-16 shrink-0 flex-col items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="font-mono text-2xl font-extrabold leading-none">{previewOverall}</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest">OVR</span>
             </div>
-            {previewAttrs && (
-              <p className="text-center text-sm text-muted-foreground">
-                Los atributos se calculan según tu físico, edad y estilo. Podrás verlos en la ficha.
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold uppercase tracking-tight">
+                {draft.firstName || draft.lastName
+                  ? `${draft.firstName} ${draft.lastName}`.trim()
+                  : "Tu jugador"}
               </p>
-            )}
+              <p className="truncate text-sm text-muted-foreground">
+                {nat?.flag} {nat?.name}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Nav */}
-      <div className="mt-8 flex items-center justify-between gap-4">
-        <Button
-          variant="ghost"
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
-        >
-          Atrás
-        </Button>
-        {step < STEPS.length - 1 ? (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed}>
-            Continuar
-          </Button>
-        ) : (
-          <Button onClick={finish} disabled={!canProceed}>
-            Crear jugador
-          </Button>
-        )}
-      </div>
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Edad</span>
+              <span className="font-mono font-semibold">{draft.age}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Mano</span>
+              <span className="font-semibold">{draft.handedness === "right" ? "Diestro" : "Zurdo"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Altura</span>
+              <span className="font-mono font-semibold">{draft.height} cm</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Revés</span>
+              <span className="font-semibold">{draft.backhand === "two" ? "2 manos" : "1 mano"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Peso</span>
+              <span className="font-mono font-semibold">{draft.weight} kg</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Estilo</span>
+              <span className="truncate font-semibold">{styleLabel ?? "—"}</span>
+            </div>
+          </div>
+
+          <div className="my-4 h-px bg-border" />
+
+          <AttributeBars attributes={previewAttrs} />
+
+          {!draft.playStyle && (
+            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+              Estimación con base neutral. Elegí un estilo de juego para afinar los atributos.
+            </p>
+          )}
+        </div>
+      </aside>
     </div>
   )
 }

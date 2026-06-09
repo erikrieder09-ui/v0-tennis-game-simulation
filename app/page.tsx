@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PlayerCreator } from "@/components/player-creator"
 import { PlayerCard } from "@/components/player-card"
 import { MentalityInfo } from "@/components/mentality-info"
+import { RankingsTable } from "@/components/rankings-table"
 import { useLocalStorage } from "@/lib/use-local-storage"
 import type { PlayerProfile } from "@/lib/types"
 
@@ -81,13 +83,29 @@ export default function Page() {
 
         {/* Player exists: dashboard */}
         {player && (
-          <section className="space-y-8">
+          <section className="space-y-6">
             <div>
-              <h1 className="text-3xl font-extrabold uppercase tracking-tight">Tu jugador</h1>
-              <p className="text-muted-foreground">Esta es la ficha base con la que arrancás el circuito.</p>
+              <h1 className="text-3xl font-extrabold uppercase tracking-tight">
+                {player.firstName} {player.lastName}
+              </h1>
+              <p className="text-muted-foreground">Tu carrera arranca hoy. Junio 2026 · Circuito {player.tour}.</p>
             </div>
-            <PlayerCard player={player} />
-            <MentalityInfo />
+            <Tabs defaultValue="ficha">
+              <TabsList>
+                <TabsTrigger value="ficha">Ficha</TabsTrigger>
+                <TabsTrigger value="ranking">Ranking</TabsTrigger>
+                <TabsTrigger value="mentalidad">Mentalidad</TabsTrigger>
+              </TabsList>
+              <TabsContent value="ficha" className="mt-6">
+                <PlayerCard player={player} />
+              </TabsContent>
+              <TabsContent value="ranking" className="mt-6">
+                <RankingsTable player={player} />
+              </TabsContent>
+              <TabsContent value="mentalidad" className="mt-6">
+                <MentalityInfo />
+              </TabsContent>
+            </Tabs>
           </section>
         )}
       </div>

@@ -9,9 +9,15 @@ function ratingColor(value: number) {
   return "bg-muted-foreground"
 }
 
-export function AttributeBars({ attributes }: { attributes: AttributeSet }) {
+export function AttributeBars({
+  attributes,
+  columns = 1,
+}: {
+  attributes: AttributeSet
+  columns?: 1 | 2
+}) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className={cn("grid grid-cols-1 gap-3", columns === 2 && "sm:grid-cols-2")}>
       {ATTRIBUTE_LABELS.map(({ key, label }) => {
         const value = attributes[key]
         return (
