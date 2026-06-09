@@ -1,36 +1,95 @@
-export default function Page() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-black px-6 text-neutral-400">
-      <div className="flex w-full max-w-md flex-col items-start gap-8">
-        <svg
-          fill="currentColor"
-          viewBox="0 0 147 70"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-          className="size-10 text-white"
-        >
-          <path d="M56 50.2031V14H70V60.1562C70 65.5928 65.5928 70 60.1562 70C57.5605 70 54.9982 68.9992 53.1562 67.1573L0 14H19.7969L56 50.2031Z" />
-          <path d="M147 56H133V23.9531L100.953 56H133V70H96.6875C85.8144 70 77 61.1856 77 50.3125V14H91V46.1562L123.156 14H91V0H127.312C138.186 0 147 8.81439 147 19.6875V56Z" />
-        </svg>
+"use client"
 
-        <div className="space-y-3">
-          <h1 className="text-balance text-2xl font-semibold tracking-tight text-white">
-            To get started, describe what you want to build.
-          </h1>
-          <p className="text-pretty text-sm leading-relaxed text-neutral-500">
-            This is the default page for a fresh v0 project. Open the prompt and
-            tell v0 what to create, or browse the{' '}
-            <a
-              href="https://v0.app/templates"
-              target="_blank"
-              rel="noreferrer"
-              className="text-neutral-300 underline underline-offset-4 hover:text-white"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { PlayerCreator } from "@/components/player-creator"
+import { PlayerCard } from "@/components/player-card"
+import { MentalityInfo } from "@/components/mentality-info"
+import { useLocalStorage } from "@/lib/use-local-storage"
+import type { PlayerProfile } from "@/lib/types"
+
+export default function Page() {
+  const [player, setPlayer, loaded] = useLocalStorage<PlayerProfile | null>("tennis-career-player", null)
+  const [creating, setCreating] = useState(false)
+
+  if (!loaded) {
+    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando…</div>
+  }
+
+  return (
+    <main className="min-h-screen">
+      {/* Top bar */}
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded bg-primary font-mono text-sm font-extrabold text-primary-foreground">
+              T
+            </span>
+            <span className="text-lg font-extrabold uppercase tracking-tight">
+              Match Point <span className="text-primary">Career</span>
+            </span>
+          </div>
+          {player && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm("¿Borrar tu jugador y empezar de nuevo?")) {
+                  setPlayer(null)
+                  setCreating(true)
+                }
+              }}
             >
-              Community
-            </a>{' '}
-            for inspiration.
-          </p>
+              Reiniciar
+            </Button>
+          )}
         </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        {/* No player yet, not creating: landing */}
+        {!player && !creating && (
+          <section className="mx-auto max-w-2xl text-center">
+            <span className="inline-block rounded-full border border-border px-3 py-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Modo carrera · Simulación
+            </span>
+            <h1 className="mt-5 text-balance text-5xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-6xl">
+              Construí una <span className="text-primary">leyenda</span> del tenis
+            </h1>
+            <p className="mt-4 text-pretty text-lg text-muted-foreground">
+              Creá tu propio jugador, elegí ATP o WTA, definí su estilo y llevalo desde los Futures hasta lo más alto
+              del ranking mundial.
+            </p>
+            <Button size="lg" className="mt-8" onClick={() => setCreating(true)}>
+              Crear mi jugador
+            </Button>
+            <div className="mt-12 text-left">
+              <MentalityInfo />
+            </div>
+          </section>
+        )}
+
+        {/* Creating */}
+        {!player && creating && (
+          <PlayerCreator
+            onComplete={(p) => {
+              setPlayer(p)
+              setCreating(false)
+            }}
+          />
+        )}
+
+        {/* Player exists: dashboard */}
+        {player && (
+          <section className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-extrabold uppercase tracking-tight">Tu jugador</h1>
+              <p className="text-muted-foreground">Esta es la ficha base con la que arrancás el circuito.</p>
+            </div>
+            <PlayerCard player={player} />
+            <MentalityInfo />
+          </section>
+        )}
       </div>
     </main>
   )

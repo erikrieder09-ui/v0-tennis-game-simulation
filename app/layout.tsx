@@ -10,8 +10,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Match Point Career — Simulador de tenis',
+  description: 'Modo carrera de tenis: creá tu jugador ATP/WTA y conquistá el circuito mundial.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -38,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="es" className={`${geistSans.variable} ${geistMono.variable} bg-background dark`}>
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
