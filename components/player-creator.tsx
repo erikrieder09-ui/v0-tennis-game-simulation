@@ -32,7 +32,7 @@ interface Draft {
   tour: Tour
   firstName: string
   lastName: string
-  nationality: string
+  nationality: string | null,
   handedness: Handedness
   backhand: Backhand
   height: number
@@ -126,7 +126,7 @@ function StepperSlider({
           min={min}
           max={max}
           step={step}
-          onValueChange={([v]) => onChange(v)}
+          onValueChange={(vals) => { const v = vals as unknown as number[]; onChange(v[0]) }}
         />
         <Button
           type="button"
@@ -212,7 +212,7 @@ export function PlayerCreator({
       tour: draft.tour,
       firstName: draft.firstName.trim(),
       lastName: draft.lastName.trim(),
-      nationality: draft.nationality,
+      nationality: draft.nationality ?? "",
       handedness: draft.handedness,
       backhand: draft.backhand,
       height: draft.height,
@@ -301,9 +301,9 @@ export function PlayerCreator({
               </div>
               <div className="space-y-2">
                 <Label>Nacionalidad</Label>
-                <Select value={draft.nationality} onValueChange={(v) => set("nationality", v)}>
+                <Select value={draft.nationality ?? ""} onValueChange={(v) => set("nationality", v ?? "")}>
                   <SelectTrigger>
-                    <SelectValue />
+                  <SelectValue placeholder="Seleccioná nacionalidad" />
                   </SelectTrigger>
                   <SelectContent className="max-h-64">
                     {NATIONALITIES.map((n) => (

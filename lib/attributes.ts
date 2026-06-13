@@ -119,7 +119,7 @@ export function computeOverall(attrs: AttributeSet, style: PlayStyle): number {
   let wSum = 0
   for (const key of Object.keys(attrs) as (keyof AttributeSet)[]) {
     const w = weights[key] ?? 1
-    total += attrs[key] * w
+    total += attrs[key] ?? 0 * w
     wSum += w
   }
   return Math.round(total / wSum)

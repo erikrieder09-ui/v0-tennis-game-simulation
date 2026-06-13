@@ -40,6 +40,8 @@ interface Seed {
   favSurface: Surface
   ovr: number // target overall, drives the rest of the attributes
   injury: number
+  currentAbility: number
+  potentialAbility: number
 }
 
 const ATP_SEEDS: Seed[] = [
@@ -169,12 +171,14 @@ function makeRival(seed: Seed, tour: Tour, rand: () => number, id: string): Riva
     height: seed.height,
     weight: seed.weight,
     playStyle: seed.style,
-    attributes: attrsFromOverall(seed.ovr, seed.style, rand),
-    overall: seed.ovr,
+    attributes: attrsFromOverall(seed.currentAbility, seed.style, rand),
+    overall: seed.currentAbility,
     rank: 0,
     points: 0,
     favSurface: seed.favSurface,
     injuryProneness: seed.injury,
+    currentAbility: seed.currentAbility,
+    potentialAbility: seed.potentialAbility,
   }
 }
 
@@ -221,6 +225,8 @@ function generatedRival(tour: Tour, rank: number, rand: () => number, id: string
     points: 0,
     favSurface,
     injuryProneness,
+    currentAbility: ovr,
+    potentialAbility: Math.min(99, ovr + Math.floor(rand() * 15)),
   }
 }
 

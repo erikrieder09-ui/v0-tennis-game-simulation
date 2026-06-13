@@ -109,6 +109,8 @@ export function buildLiveRanking(tour: Tour, userPoints: number, player: PlayerP
     points: userPoints,
     favSurface: "hard",
     injuryProneness: 20,
+    currentAbility: userOverall,
+    potentialAbility: userOverall +5,
     isUser: true,
   }
   // Exclude the deepest rival so the field size stays constant after insertion.
@@ -188,3 +190,160 @@ export function trainMentality(attrs: AttributeSet, trainings: number): { value:
   }
   return { value: m, gained: false, reason: "Sesión de trabajo mental sin progreso visible. La mente se forja compitiendo." }
 }
+  /* -------------------------------------------------------------------------- */
+/*  Ageing & progression — llamar una vez por temporada (cada ~52 semanas)    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Devuelve cuántos puntos de mejora recibe cada atributo por temporada,
+ * según la edad actual del jugador.
+ */
+function progressionRate(age: number): number {
+  if (age <= 18) return 4.0   // jóvenes promesas mejoran muy rápido
+  if (age <= 20) return 3.0
+  if (age <= 22) return 2.0
+  if (age <= 24) return 1.2
+  if (age <= 26) return 0.6
+  if (age <= 28) return 0.2   // meseta
+  if (age <= 30) return 0.0   // sin mejora natural
+  if (age <= 33) return -0.5  // declive leve
+  if (age <= 36) return -1.2  // declive moderado
+  return -2.0                  // declive marcado +37
+}
+const PHYSICAL_ATTRS: (keyof AttributeSet)[] = ["speed", "stamina", "power"]
+const TECHNICAL_ATTRS: (keyof AttributeSet)[] = ["serve", "forehand", "backhand", "volley"]
+
+/**
+ * Atributos físicos que decaen antes con la edad.
+ * Los técnicos resisten más y la mentalidad sigue subiendo.
+ */
+
+/**
+ * Aplica envejecimiento y progresión anual al jugador.
+ * Llamar al cumplir cada año en la carrera.
+ *
+ * - Hasta los 26: todos los atributos suben (físicos un poco menos)
+ * - 27-30: meseta, solo CA puede subir si PA lo permite
+ * - 31+: físicos caen, técnicos se mantienen o caen lento, mentalidad sube
+ */
+export function applyAnnualProgression(career: CareerState): {
+  career: CareerState
+  changes: Partial<Record<keyof AttributeSet, number>>
+  summary: string
+} {
+  const age = career.player.age
+  const attrs = { ...career.player.attributes }
+  const changes: Partial<Record<keyof AttributeSet, number>> = {}
+
+  const rate = progressionRate(age)
+
+  // Potencial: cuánto puede crecer aún (CA/PA)
+  // Usamos el overall actual como CA y lo comparamos con PA del rival más cercano
+  // En el jugador usuario no tenemos PA definido en PlayerProfile, así que
+  // lo estimamos: PA decrece con la edad a partir de los 24.
+  const estimatedPA = age <= 20 ? 90
+    : age <= 23 ? 85
+    : age <= 26 ? 80
+    : age <= 29 ? 75
+    : 65
+
+  const currentOverall = computeOverall(attrs, career.player.playStyle)
+  const roomToGrow = Math.max(0, estimatedPA - currentOverall)
+
+  if (age <= 30) {
+    // Fase de crecimiento o meseta
+    for (const key of TECHNICAL_ATTRS) {
+      const gain = Math.round((rate * (roomToGrow / 20)) * (0.8 + Math.random() * 0.4))
+      if (gain !== 0) {
+        attrs[key] = Math.min(99, Math.max(30, attrs[key] ?? 0 + gain))
+        if (gain !== 0) changes[key] = gain
+      }
+    }
+    for (const key of PHYSICAL_ATTRS) {
+      // Físicos mejoran más lento y antes empiezan a caer
+      const physRate = age <= 26 ? rate * 0.7 : age <= 28 ? -0.2 : -0.5
+      const gain = Math.round(physRate * (0.8 + Math.random() * 0.4))
+      if (gain !== 0) {
+        attrs[key] = Math.min(99, Math.max(30, attrs[key] ?? 0 + gain))
+        changes[key] = gain
+      }
+    }
+  } else {
+    // Fase de declive
+    for (const key of PHYSICAL_ATTRS) {
+      const loss = Math.round(Math.abs(rate) * (0.9 + Math.random() * 0.3))
+      attrs[key] = Math.max(30, attrs[key] ?? 0 - loss)
+      changes[key] = -loss
+    }
+    for (const key of TECHNICAL_ATTRS) {
+      // Técnicos caen más lento — experiencia compensa
+      const techRate = age <= 33 ? 0.2 : age <= 36 ? 0.6 : 1.0
+      const loss = Math.random() < techRate ? 1 : 0
+      if (loss > 0) {
+        attrs[key] = Math.max(30, attrs[key] ?? 0 - loss)
+        changes[key] = -loss
+      }
+    }
+  }
+
+  // Mentalidad: sigue subiendo con experiencia hasta los ~35
+  if (age <= 35 && attrs.mentality < 95) {
+    const mentalGain = age <= 25 ? 1 : age <= 30 ? 1 : age <= 35 ? 0 : -1
+    if (Math.random() < 0.7 && mentalGain > 0) {
+      attrs.mentality = Math.min(99, attrs.mentality + mentalGain)
+      changes.mentality = mentalGain
+    }
+  }
+
+  // Cumplir un año más
+  const newPlayer = {
+    ...career.player,
+    age: age + 1,
+    attributes: attrs,
+  }
+
+  // Resumen legible
+  const gained = Object.entries(changes)
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => `${k} +${v}`)
+    .join(", ")
+  const lost = Object.entries(changes)
+    .filter(([, v]) => v < 0)
+    .map(([k, v]) => `${k} ${v}`)
+    .join(", ")
+
+  const summary = age <= 26
+    ? `Temporada completada (${age}→${age + 1} años). Progresión: ${gained || "sin cambios"}.`
+    : age <= 30
+    ? `Temporada completada (${age}→${age + 1} años). Meseta: ${gained || ""}${lost ? ` | Físico: ${lost}` : ""}.`
+    : `Temporada completada (${age}→${age + 1} años). Declive físico: ${lost}${gained ? ` | Ganado: ${gained}` : ""}.`
+
+  return {
+    career: {
+      ...career,
+      player: newPlayer,
+      log: [...career.log, summary],
+    },
+    changes,
+    summary,
+  }
+}
+
+/**
+ * Verifica si corresponde aplicar progresión anual
+ * (se llama en cada avance de semana — actúa solo si pasó un año).
+ */
+export function checkAnnualProgression(career: CareerState): CareerState {
+  const start = new Date(SEASON_START)
+  const current = new Date(career.date)
+  const weeksElapsed = Math.round(
+    (current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)
+  )
+  // Aplicar cada 52 semanas
+  if (weeksElapsed > 0 && weeksElapsed % 52 === 0) {
+    const { career: updated } = applyAnnualProgression(career)
+    return updated
+  }
+  return career
+}
+

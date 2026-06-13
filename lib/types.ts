@@ -15,6 +15,7 @@ export interface AttributeSet {
   stamina: number
   power: number
   mentality: number
+  fitness?: number
 }
 
 export interface PlayerProfile {
@@ -31,7 +32,7 @@ export interface PlayerProfile {
   attributes: AttributeSet
 }
 
-export type Surface = "hard" | "clay" | "grass"
+export type Surface = "hard" | "clay" | "grass" | "carpet"  
 
 export type Division = "grand-slam" | "masters" | "tour" | "challenger" | "futures"
 
@@ -54,12 +55,15 @@ export interface Rival {
   favSurface: Surface
   // 0 (iron man) to 100 (extremely fragile) — tendency to pick up injuries.
   injuryProneness: number
+  currentAbility: number
+  potentialAbility: number
 }
 
 export const SURFACE_LABELS: Record<Surface, string> = {
   hard: "Dura",
   clay: "Polvo de ladrillo",
   grass: "Césped",
+  carpet: "Indoor",
 }
 
 export const PLAY_STYLES: {
