@@ -43,54 +43,54 @@ interface Seed {
 }
 
 const ATP_SEEDS: Seed[] = [
-  { first: "Janik", last: "Senner", nat: "ITA", age: 24, hand: "right", backhand: "two", height: 191, weight: 77, style: "aggressive-baseline", favSurface: "hard", ovr: 96, injury: 22 },
-  { first: "Carlos", last: "Alcázar", nat: "ESP", age: 23, hand: "right", backhand: "two", height: 183, weight: 74, style: "all-around", favSurface: "clay", ovr: 95, injury: 30 },
-  { first: "Alex", last: "Zveriov", nat: "GER", age: 28, hand: "right", backhand: "one", height: 198, weight: 90, style: "aggressive-baseline", favSurface: "hard", ovr: 90, injury: 40 },
-  { first: "Danil", last: "Medvedov", nat: "RUS", age: 29, hand: "right", backhand: "two", height: 198, weight: 83, style: "defensive-baseline", favSurface: "hard", ovr: 89, injury: 25 },
-  { first: "Taylan", last: "Fritsch", nat: "USA", age: 27, hand: "right", backhand: "two", height: 196, weight: 86, style: "aggressive-baseline", favSurface: "hard", ovr: 88, injury: 20 },
-  { first: "Novan", last: "Djokic", nat: "SRB", age: 38, hand: "right", backhand: "two", height: 188, weight: 77, style: "all-around", favSurface: "hard", ovr: 88, injury: 35 },
-  { first: "Casio", last: "Ruud", nat: "NOR", age: 26, hand: "right", backhand: "two", height: 183, weight: 77, style: "defensive-baseline", favSurface: "clay", ovr: 86, injury: 18 },
-  { first: "Andrés", last: "Rubliev", nat: "RUS", age: 28, hand: "right", backhand: "two", height: 188, weight: 75, style: "aggressive-baseline", favSurface: "hard", ovr: 85, injury: 28 },
-  { first: "Holver", last: "Rüne", nat: "DEN", age: 22, hand: "right", backhand: "two", height: 188, weight: 77, style: "aggressive-baseline", favSurface: "hard", ovr: 85, injury: 32 },
-  { first: "Grigol", last: "Dimitrev", nat: "BUL", age: 34, hand: "right", backhand: "one", height: 191, weight: 80, style: "all-around", favSurface: "hard", ovr: 84, injury: 45 },
-  { first: "Stefan", last: "Tsitsipos", nat: "GRE", age: 27, hand: "right", backhand: "one", height: 193, weight: 89, style: "aggressive-baseline", favSurface: "clay", ovr: 84, injury: 30 },
-  { first: "Alexis", last: "De Mañur", nat: "AUS", age: 27, hand: "right", backhand: "two", height: 183, weight: 69, style: "defensive-baseline", favSurface: "hard", ovr: 83, injury: 24 },
-  { first: "Tomás", last: "Macháts", nat: "CZE", age: 25, hand: "right", backhand: "two", height: 188, weight: 80, style: "aggressive-baseline", favSurface: "hard", ovr: 82, injury: 20 },
-  { first: "Ben", last: "Shelten", nat: "USA", age: 23, hand: "left", backhand: "two", height: 193, weight: 88, style: "serve-volley", favSurface: "hard", ovr: 82, injury: 18 },
-  { first: "Lorencio", last: "Musseti", nat: "ITA", age: 23, hand: "right", backhand: "one", height: 185, weight: 78, style: "all-around", favSurface: "clay", ovr: 81, injury: 26 },
-  { first: "Uberto", last: "Húrkez", nat: "POL", age: 30, hand: "right", backhand: "two", height: 196, weight: 86, style: "aggressive-baseline", favSurface: "hard", ovr: 80, injury: 22 },
-  { first: "Frans", last: "Tiafó", nat: "USA", age: 27, hand: "right", backhand: "two", height: 188, weight: 80, style: "all-around", favSurface: "hard", ovr: 80, injury: 25 },
-  { first: "Kaspar", last: "Rúud", nat: "NED", age: 26, hand: "right", backhand: "two", height: 188, weight: 81, style: "serve-volley", favSurface: "grass", ovr: 79, injury: 28 },
-  { first: "Sebastián", last: "Korja", nat: "USA", age: 25, hand: "right", backhand: "two", height: 196, weight: 86, style: "aggressive-baseline", favSurface: "hard", ovr: 79, injury: 30 },
-  { first: "Felisiano", last: "Áliassim", nat: "CAN", age: 25, hand: "right", backhand: "two", height: 193, weight: 90, style: "serve-volley", favSurface: "hard", ovr: 79, injury: 26 },
-  { first: "Karén", last: "Jachánov", nat: "RUS", age: 29, hand: "right", backhand: "two", height: 198, weight: 88, style: "aggressive-baseline", favSurface: "hard", ovr: 78, injury: 24 },
-  { first: "Ugoh", last: "Humber", nat: "FRA", age: 26, hand: "right", backhand: "one", height: 188, weight: 76, style: "serve-volley", favSurface: "grass", ovr: 78, injury: 32 },
-  { first: "Frances", last: "Cerundol", nat: "ARG", age: 27, hand: "right", backhand: "two", height: 183, weight: 76, style: "defensive-baseline", favSurface: "clay", ovr: 77, injury: 22 },
-  { first: "Nikolái", last: "Basilios", nat: "GRE", age: 24, hand: "right", backhand: "one", height: 196, weight: 87, style: "serve-volley", favSurface: "grass", ovr: 77, injury: 20 },
-  { first: "Jordán", last: "Tompson", nat: "AUS", age: 31, hand: "right", backhand: "two", height: 185, weight: 80, style: "all-around", favSurface: "hard", ovr: 76, injury: 35 },
+  { first: "Janik", last: "Senner", nat: "ITA", age: 24, hand: "right", backhand: "two", height: 191, weight: 77, style: "aggressive-baseline", favSurface: "hard", ovr: 96, injury: 22, currentAbility: 96, potentialAbility: 98 },
+  { first: "Carlos", last: "Alcázar", nat: "ESP", age: 23, hand: "right", backhand: "two", height: 183, weight: 74, style: "all-around", favSurface: "clay", ovr: 95, injury: 30, currentAbility: 95, potentialAbility: 98 },
+  { first: "Alex", last: "Zveriov", nat: "GER", age: 28, hand: "right", backhand: "one", height: 198, weight: 90, style: "aggressive-baseline", favSurface: "hard", ovr: 90, injury: 40, currentAbility: 90, potentialAbility: 92 },
+  { first: "Danil", last: "Medvedov", nat: "RUS", age: 29, hand: "right", backhand: "two", height: 198, weight: 83, style: "defensive-baseline", favSurface: "hard", ovr: 89, injury: 25, currentAbility: 89, potentialAbility: 91 },
+  { first: "Taylan", last: "Fritsch", nat: "USA", age: 27, hand: "right", backhand: "two", height: 196, weight: 86, style: "aggressive-baseline", favSurface: "hard", ovr: 88, injury: 20, currentAbility: 88, potentialAbility: 90 },
+  { first: "Novan", last: "Djokic", nat: "SRB", age: 38, hand: "right", backhand: "two", height: 188, weight: 77, style: "all-around", favSurface: "hard", ovr: 88, injury: 35, currentAbility: 88, potentialAbility: 90 },
+  { first: "Casio", last: "Ruud", nat: "NOR", age: 26, hand: "right", backhand: "two", height: 183, weight: 77, style: "defensive-baseline", favSurface: "clay", ovr: 86, injury: 18, currentAbility: 86, potentialAbility: 88 },
+  { first: "Andrés", last: "Rubliev", nat: "RUS", age: 28, hand: "right", backhand: "two", height: 188, weight: 75, style: "aggressive-baseline", favSurface: "hard", ovr: 85, injury: 28, currentAbility: 85, potentialAbility: 88 },
+  { first: "Holver", last: "Rüne", nat: "DEN", age: 22, hand: "right", backhand: "two", height: 188, weight: 77, style: "aggressive-baseline", favSurface: "hard", ovr: 85, injury: 32, currentAbility: 85, potentialAbility: 90 },
+  { first: "Grigol", last: "Dimitrev", nat: "BUL", age: 34, hand: "right", backhand: "one", height: 191, weight: 80, style: "all-around", favSurface: "hard", ovr: 84, injury: 45, currentAbility: 84, potentialAbility: 86 },
+  { first: "Stefan", last: "Tsitsipos", nat: "GRE", age: 27, hand: "right", backhand: "one", height: 193, weight: 89, style: "aggressive-baseline", favSurface: "clay", ovr: 84, injury: 30, currentAbility: 84, potentialAbility: 88 },
+  { first: "Alexis", last: "De Mañur", nat: "AUS", age: 27, hand: "right", backhand: "two", height: 183, weight: 69, style: "defensive-baseline", favSurface: "hard", ovr: 83, injury: 24, currentAbility: 83, potentialAbility: 86 },
+  { first: "Tomás", last: "Macháts", nat: "CZE", age: 25, hand: "right", backhand: "two", height: 188, weight: 80, style: "aggressive-baseline", favSurface: "hard", ovr: 82, injury: 20, currentAbility: 82, potentialAbility: 86 },
+  { first: "Ben", last: "Shelten", nat: "USA", age: 23, hand: "left", backhand: "two", height: 193, weight: 88, style: "serve-volley", favSurface: "hard", ovr: 82, injury: 18, currentAbility: 82, potentialAbility: 88 },
+  { first: "Lorencio", last: "Musseti", nat: "ITA", age: 23, hand: "right", backhand: "one", height: 185, weight: 78, style: "all-around", favSurface: "clay", ovr: 81, injury: 26, currentAbility: 81, potentialAbility: 88 },
+  { first: "Uberto", last: "Húrkez", nat: "POL", age: 30, hand: "right", backhand: "two", height: 196, weight: 86, style: "aggressive-baseline", favSurface: "hard", ovr: 80, injury: 22, currentAbility: 80, potentialAbility: 84 },
+  { first: "Frans", last: "Tiafó", nat: "USA", age: 27, hand: "right", backhand: "two", height: 188, weight: 80, style: "all-around", favSurface: "hard", ovr: 80, injury: 25, currentAbility: 80, potentialAbility: 84 },
+  { first: "Henrik", last: "Rydén", nat: "SWE", age: 21, hand: "left", backhand: "one", height: 187, weight: 80, style: "all-around", favSurface: "hard", ovr: 68, injury: 18, currentAbility: 68, potentialAbility: 94 },
+  { first: "Luka", last: "Rinovic", nat: "CRO", age: 22, hand: "right", backhand: "two", height: 211, weight: 101, style: "serve-volley", favSurface: "grass", ovr: 66, injury: 30, currentAbility: 66, potentialAbility: 90 },
+  { first: "Feliciano", last: "Tolosa", nat: "COL", age: 21, hand: "right", backhand: "two", height: 175, weight: 72, style: "defensive-baseline", favSurface: "clay", ovr: 65, injury: 18, currentAbility: 65, potentialAbility: 90 },
+  { first: "Romain", last: "Lordian", nat: "FRA", age: 22, hand: "right", backhand: "two", height: 179, weight: 73, style: "defensive-baseline", favSurface: "hard", ovr: 66, injury: 20, currentAbility: 66, potentialAbility: 90 },
+  { first: "Gustav", last: "Rydén", nat: "SWE", age: 23, hand: "right", backhand: "one", height: 186, weight: 79, style: "aggressive-baseline", favSurface: "hard", ovr: 65, injury: 22, currentAbility: 65, potentialAbility: 92 },
+  { first: "Francis", last: "Botter", nat: "CAN", age: 24, hand: "right", backhand: "two", height: 185, weight: 82, style: "aggressive-baseline", favSurface: "hard", ovr: 64, injury: 24, currentAbility: 64, potentialAbility: 90 },
+  { first: "Maksim", last: "Yianetskiy", nat: "RUS", age: 20, hand: "left", backhand: "two", height: 182, weight: 77, style: "defensive-baseline", favSurface: "clay", ovr: 66, injury: 18, currentAbility: 66, potentialAbility: 90 },
+  { first: "Tiagu", last: "Gumu", nat: "MLT", age: 23, hand: "right", backhand: "two", height: 191, weight: 88, style: "serve-volley", favSurface: "hard", ovr: 65, injury: 20, currentAbility: 65, potentialAbility: 90 },
 ]
 
 const WTA_SEEDS: Seed[] = [
-  { first: "Iga", last: "Swiátek", nat: "POL", age: 24, hand: "right", backhand: "two", height: 176, weight: 65, style: "aggressive-baseline", favSurface: "clay", ovr: 95, injury: 18 },
-  { first: "Arina", last: "Sabalénka", nat: "KAZ", age: 27, hand: "right", backhand: "two", height: 182, weight: 80, style: "aggressive-baseline", favSurface: "hard", ovr: 94, injury: 24 },
-  { first: "Coco", last: "Gaff", nat: "USA", age: 21, hand: "right", backhand: "two", height: 175, weight: 62, style: "defensive-baseline", favSurface: "hard", ovr: 91, injury: 16 },
-  { first: "Elina", last: "Ribákina", nat: "KAZ", age: 26, hand: "right", backhand: "two", height: 184, weight: 72, style: "aggressive-baseline", favSurface: "grass", ovr: 89, injury: 22 },
-  { first: "Jésica", last: "Pegúla", nat: "USA", age: 31, hand: "right", backhand: "two", height: 170, weight: 65, style: "all-around", favSurface: "hard", ovr: 87, injury: 20 },
-  { first: "Jásmin", last: "Paolino", nat: "ITA", age: 29, hand: "right", backhand: "two", height: 163, weight: 58, style: "defensive-baseline", favSurface: "clay", ovr: 85, injury: 18 },
-  { first: "Kási", last: "Múchova", nat: "CZE", age: 29, hand: "right", backhand: "two", height: 180, weight: 65, style: "all-around", favSurface: "hard", ovr: 85, injury: 50 },
-  { first: "Zhéng", last: "Qinwén", nat: "CHN", age: 23, hand: "right", backhand: "two", height: 178, weight: 72, style: "aggressive-baseline", favSurface: "hard", ovr: 84, injury: 22 },
-  { first: "Mira", last: "Andréiova", nat: "RUS", age: 18, hand: "right", backhand: "two", height: 170, weight: 60, style: "all-around", favSurface: "hard", ovr: 84, injury: 16 },
-  { first: "Bárbora", last: "Krejcíkova", nat: "CZE", age: 30, hand: "right", backhand: "two", height: 178, weight: 66, style: "all-around", favSurface: "clay", ovr: 82, injury: 40 },
-  { first: "Danila", last: "Cólins", nat: "USA", age: 32, hand: "right", backhand: "two", height: 173, weight: 65, style: "aggressive-baseline", favSurface: "hard", ovr: 81, injury: 30 },
-  { first: "Emma", last: "Navárez", nat: "USA", age: 24, hand: "right", backhand: "two", height: 168, weight: 60, style: "defensive-baseline", favSurface: "clay", ovr: 81, injury: 18 },
-  { first: "Dária", last: "Kasátkova", nat: "AUS", age: 28, hand: "right", backhand: "two", height: 170, weight: 60, style: "defensive-baseline", favSurface: "clay", ovr: 80, injury: 22 },
-  { first: "Beatris", last: "Haddá Maya", nat: "BRA", age: 29, hand: "left", backhand: "two", height: 185, weight: 70, style: "aggressive-baseline", favSurface: "clay", ovr: 79, injury: 26 },
-  { first: "Ludmila", last: "Sámsonova", nat: "RUS", age: 27, hand: "right", backhand: "two", height: 184, weight: 72, style: "aggressive-baseline", favSurface: "hard", ovr: 79, injury: 24 },
-  { first: "Liudmila", last: "Fernándes", nat: "USA", age: 23, hand: "right", backhand: "two", height: 168, weight: 59, style: "all-around", favSurface: "hard", ovr: 78, injury: 20 },
-  { first: "Élise", last: "Mertons", nat: "BEL", age: 30, hand: "right", backhand: "two", height: 170, weight: 64, style: "all-around", favSurface: "hard", ovr: 78, injury: 18 },
-  { first: "Marquéta", last: "Vondróusova", nat: "CZE", age: 26, hand: "left", backhand: "two", height: 172, weight: 64, style: "defensive-baseline", favSurface: "grass", ovr: 78, injury: 45 },
-  { first: "Anastasía", last: "Pávlukova", nat: "RUS", age: 28, hand: "right", backhand: "two", height: 175, weight: 64, style: "aggressive-baseline", favSurface: "hard", ovr: 77, injury: 26 },
-  { first: "Viktória", last: "Asaránka", nat: "BEL", age: 36, hand: "right", backhand: "two", height: 183, weight: 66, style: "aggressive-baseline", favSurface: "hard", ovr: 76, injury: 38 },
+  { first: "Iga", last: "Swiátek", nat: "POL", age: 24, hand: "right", backhand: "two", height: 176, weight: 65, style: "aggressive-baseline", favSurface: "clay", ovr: 95, injury: 18, currentAbility: 95, potentialAbility: 96 },
+  { first: "Arina", last: "Sabalénka", nat: "KAZ", age: 27, hand: "right", backhand: "two", height: 182, weight: 80, style: "aggressive-baseline", favSurface: "hard", ovr: 94, injury: 24, currentAbility: 94, potentialAbility: 96 },
+  { first: "Coco", last: "Gaff", nat: "USA", age: 21, hand: "right", backhand: "two", height: 175, weight: 62, style: "defensive-baseline", favSurface: "hard", ovr: 91, injury: 16, currentAbility: 91, potentialAbility: 97 },
+  { first: "Elina", last: "Ribákina", nat: "KAZ", age: 26, hand: "right", backhand: "two", height: 184, weight: 72, style: "aggressive-baseline", favSurface: "grass", ovr: 89, injury: 22, currentAbility: 89, potentialAbility: 92 },
+  { first: "Jésica", last: "Pegúla", nat: "USA", age: 31, hand: "right", backhand: "two", height: 170, weight: 65, style: "all-around", favSurface: "hard", ovr: 87, injury: 20, currentAbility: 87, potentialAbility: 88 },
+  { first: "Jásmin", last: "Paolino", nat: "ITA", age: 29, hand: "right", backhand: "two", height: 163, weight: 58, style: "defensive-baseline", favSurface: "clay", ovr: 85, injury: 18, currentAbility: 85, potentialAbility: 88 },
+  { first: "Kási", last: "Múchova", nat: "CZE", age: 29, hand: "right", backhand: "two", height: 180, weight: 65, style: "all-around", favSurface: "hard", ovr: 85, injury: 50, currentAbility: 85, potentialAbility: 88 },
+  { first: "Zhéng", last: "Qinwén", nat: "CHN", age: 23, hand: "right", backhand: "two", height: 178, weight: 72, style: "aggressive-baseline", favSurface: "hard", ovr: 84, injury: 22, currentAbility: 84, potentialAbility: 92 },
+  { first: "Mira", last: "Andréiova", nat: "RUS", age: 18, hand: "right", backhand: "two", height: 170, weight: 60, style: "all-around", favSurface: "hard", ovr: 84, injury: 16, currentAbility: 84, potentialAbility: 98 },
+  { first: "Bárbora", last: "Krejcíkova", nat: "CZE", age: 30, hand: "right", backhand: "two", height: 178, weight: 66, style: "all-around", favSurface: "clay", ovr: 82, injury: 40, currentAbility: 82, potentialAbility: 84 },
+  { first: "Danila", last: "Cólins", nat: "USA", age: 32, hand: "right", backhand: "two", height: 173, weight: 65, style: "aggressive-baseline", favSurface: "hard", ovr: 81, injury: 30, currentAbility: 81, potentialAbility: 84 },
+  { first: "Emma", last: "Navárez", nat: "USA", age: 24, hand: "right", backhand: "two", height: 168, weight: 60, style: "defensive-baseline", favSurface: "clay", ovr: 81, injury: 18, currentAbility: 81, potentialAbility: 88 },
+  { first: "Dária", last: "Kasátkova", nat: "AUS", age: 28, hand: "right", backhand: "two", height: 170, weight: 60, style: "defensive-baseline", favSurface: "clay", ovr: 80, injury: 22, currentAbility: 80, potentialAbility: 88 },
+  { first: "Beatris", last: "Haddá Maya", nat: "BRA", age: 29, hand: "left", backhand: "two", height: 185, weight: 70, style: "aggressive-baseline", favSurface: "clay", ovr: 79, injury: 26, currentAbility: 79, potentialAbility: 88 },
+  { first: "Ludmila", last: "Sámsonova", nat: "RUS", age: 27, hand: "right", backhand: "two", height: 184, weight: 72, style: "aggressive-baseline", favSurface: "hard", ovr: 79, injury: 24, currentAbility: 79, potentialAbility: 88 },
+  { first: "Liudmila", last: "Fernándes", nat: "USA", age: 23, hand: "right", backhand: "two", height: 168, weight: 59, style: "all-around", favSurface: "hard", ovr: 78, injury: 20, currentAbility: 78, potentialAbility: 88 },
+  { first: "Élise", last: "Mertons", nat: "BEL", age: 30, hand: "right", backhand: "two", height: 170, weight: 64, style: "all-around", favSurface: "hard", ovr: 78, injury: 18, currentAbility: 78, potentialAbility: 84 },
+  { first: "Abiye", last: "Sancar", nat: "TUR", age: 22, hand: "right", backhand: "two", height: 164, weight: 58, style: "all-around", favSurface: "hard", ovr: 67, injury: 16, currentAbility: 67, potentialAbility: 95 },
+  { first: "Anastasía", last: "Pávlukova", nat: "RUS", age: 28, hand: "right", backhand: "two", height: 175, weight: 64, style: "aggressive-baseline", favSurface: "hard", ovr: 77, injury: 26, currentAbility: 77, potentialAbility: 88 },
+  { first: "Viktória", last: "Asaránka", nat: "BEL", age: 36, hand: "right", backhand: "two", height: 183, weight: 66, style: "aggressive-baseline", favSurface: "hard", ovr: 76, injury: 38, currentAbility: 76, potentialAbility: 80 },
 ]
 
 /* -------------------------------------------------------------------------- */
@@ -181,9 +181,10 @@ function makeRival(seed: Seed, tour: Tour, rand: () => number, id: string): Riva
 const SURFACES: Surface[] = ["hard", "clay", "grass"]
 
 function generatedRival(tour: Tour, rank: number, rand: () => number, id: string): Rival {
-  // Overall decays with rank: ~74 at #25 down to ~48 deep in Futures.
-  const base = 76 - Math.log2(rank) * 4.4
-  const ovr = Math.max(46, Math.min(80, Math.round(base + (rand() - 0.5) * 4)))
+  // Curva progresiva y realista:
+  // Rank 19 → ~79, Rank 50 → ~73, Rank 100 → ~68, Rank 150 → ~63, Rank 200 → ~58, Rank 249 → ~54
+  const base = 95 - Math.log(rank) * 5.8
+  const ovr = Math.max(52, Math.min(79, Math.round(base + (rand() - 0.5) * 3)))  // Overall decays with rank: ~74 at #25 down to ~48 deep in Futures.
 
   const nat = NAT_POOL[Math.floor(rand() * NAT_POOL.length)]
   const names = NAT_NAMES[nat]

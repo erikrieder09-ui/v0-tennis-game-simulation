@@ -59,13 +59,13 @@ function pointsForRank(rank: number): number {
 
 export function createCareer(player: PlayerProfile): CareerState {
   // Start ranked somewhere between 200 and 250.
-  const startRank = 200 + Math.floor(Math.random() * 51)
+  const startRank = 230 + Math.floor(Math.random() * 21)
   const points = pointsForRank(startRank) + Math.floor(Math.random() * 15)
   return {
     player,
     points,
     bestRank: startRank,
-    money: 12000,
+    money: 3000,
     date: SEASON_START,
     mentalityXp: 0,
     mentalTrainings: 0,

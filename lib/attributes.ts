@@ -64,11 +64,12 @@ export function computeAttributes(input: AttributeInput): AttributeSet {
 
   // Height: taller players serve bigger and hit with more power, but lose a bit
   // of speed/agility. Shorter players gain speed.
-  const tallRef = input.tour === "WTA" ? 175 : 188
+  const tallRef = input.tour === "WTA" ? 170 : 183
   const heightDelta = input.height - tallRef
-  base.serve += heightDelta * 0.35
-  base.power += heightDelta * 0.25
-  base.speed -= heightDelta * 0.22
+  base.serve += heightDelta * 0.45
+  base.power += heightDelta * 0.30
+  base.speed -= heightDelta * 0.20
+  base.stamina -= heightDelta * 0.12
 
   // Weight relative to a healthy frame for the given height (rough BMI proxy).
   const idealWeight = (input.height - 100) * (input.tour === "WTA" ? 0.85 : 0.92)

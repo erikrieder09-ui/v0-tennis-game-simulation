@@ -161,12 +161,12 @@ export function PlayerCreator({
     setDraft((d) => ({
       ...d,
       tour,
-      height: tour === "WTA" ? 172 : 185,
+      height: tour === "WTA" ? 170 : 183,
       weight: tour === "WTA" ? 63 : 78,
     }))
   }
 
-  const heightRange = draft.tour === "WTA" ? [155, 192] : [165, 211]
+  const heightRange = draft.tour === "WTA" ? [150, 195] : [170, 210]
   const weightRange = draft.tour === "WTA" ? [50, 85] : [60, 105]
 
   const canProceed = useMemo(() => {
