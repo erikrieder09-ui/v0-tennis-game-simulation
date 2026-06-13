@@ -2,11 +2,9 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PlayerCreator } from "@/components/player-creator"
-import { PlayerCard } from "@/components/player-card"
+import { CareerHub } from "@/components/career-hub"
 import { MentalityInfo } from "@/components/mentality-info"
-import { RankingsTable } from "@/components/rankings-table"
 import { useLocalStorage } from "@/lib/use-local-storage"
 import type { PlayerProfile } from "@/lib/types"
 
@@ -20,28 +18,21 @@ export default function Page() {
 
   return (
     <main className="min-h-screen">
-      {/* Top bar */}
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded bg-primary font-mono text-sm font-extrabold text-primary-foreground">
-              T
-            </span>
+            <span className="flex h-7 w-7 items-center justify-center rounded bg-primary font-mono text-sm font-extrabold text-primary-foreground">T</span>
             <span className="text-lg font-extrabold uppercase tracking-tight">
               Match Point <span className="text-primary">Career</span>
             </span>
           </div>
           {player && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (confirm("¿Borrar tu jugador y empezar de nuevo?")) {
-                  setPlayer(null)
-                  setCreating(true)
-                }
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={() => {
+              if (confirm("¿Borrar tu jugador y empezar de nuevo?")) {
+                setPlayer(null)
+                setCreating(false)
+              }
+            }}>
               Reiniciar
             </Button>
           )}
@@ -49,7 +40,6 @@ export default function Page() {
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        {/* No player yet, not creating: landing */}
         {!player && !creating && (
           <section className="mx-auto max-w-2xl text-center">
             <span className="inline-block rounded-full border border-border px-3 py-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -59,8 +49,7 @@ export default function Page() {
               Construí una <span className="text-primary">leyenda</span> del tenis
             </h1>
             <p className="mt-4 text-pretty text-lg text-muted-foreground">
-              Creá tu propio jugador, elegí ATP o WTA, definí su estilo y llevalo desde los Futures hasta lo más alto
-              del ranking mundial.
+              Creá tu propio jugador, elegí ATP o WTA, definí su estilo y llevalo desde los Futures hasta lo más alto del ranking mundial.
             </p>
             <Button size="lg" className="mt-8" onClick={() => setCreating(true)}>
               Crear mi jugador
@@ -71,42 +60,12 @@ export default function Page() {
           </section>
         )}
 
-        {/* Creating */}
         {!player && creating && (
-          <PlayerCreator
-            onComplete={(p) => {
-              setPlayer(p)
-              setCreating(false)
-            }}
-          />
+          <PlayerCreator onComplete={(p) => { setPlayer(p); setCreating(false) }} />
         )}
 
-        {/* Player exists: dashboard */}
         {player && (
-          <section className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-extrabold uppercase tracking-tight">
-                {player.firstName} {player.lastName}
-              </h1>
-              <p className="text-muted-foreground">Tu carrera arranca hoy. Junio 2026 · Circuito {player.tour}.</p>
-            </div>
-            <Tabs defaultValue="ficha">
-              <TabsList>
-                <TabsTrigger value="ficha">Ficha</TabsTrigger>
-                <TabsTrigger value="ranking">Ranking</TabsTrigger>
-                <TabsTrigger value="mentalidad">Mentalidad</TabsTrigger>
-              </TabsList>
-              <TabsContent value="ficha" className="mt-6">
-                <PlayerCard player={player} />
-              </TabsContent>
-              <TabsContent value="ranking" className="mt-6">
-                <RankingsTable player={player} />
-              </TabsContent>
-              <TabsContent value="mentalidad" className="mt-6">
-                <MentalityInfo />
-              </TabsContent>
-            </Tabs>
-          </section>
+          <CareerHub player={player} />
         )}
       </div>
     </main>
