@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { createCareer, buildLiveRanking, getPlayerRankcar, addWeeks, formatDate, formatMoney, type CareerState } from "@/lib/career"
+import { createCareer, buildLiveRanking, getPlayerRank, addWeeks, formatDate, formatMoney, type CareerState } from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, type Tournament } from "@/lib/calendar"
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
@@ -69,52 +69,32 @@ function buildDraw(
   userRival: Rival,
   isDirect: boolean
 ): DrawMatch[] {
-
   const info = CATEGORY_INFO[t.category]
   const size = info.drawSize
 
-  // rango máximo aproximado según categoría
-  let maxRank = 200
-
+  let rankWindow: [number, number]
   switch (t.category) {
-    case "grand-slam":
-      maxRank = 250
-      break
-
-    case "masters-1000":
-      maxRank = 120
-      break
-
-    case "atp-500":
-      maxRank = 90
-      break
-
-    case "atp-250":
-      maxRank = 150
-      break
-
-    case "challenger":
-      maxRank = 350
-      break
-
-    case "futures":
-      maxRank = 1500
-      break
+    case "grand-slam":     rankWindow = [1, 110]; break
+    case "masters-1000":   rankWindow = [1, 75]; break
+    case "atp-500":        rankWindow = [1, 60]; break
+    case "atp-250":        rankWindow = [15, 110]; break
+    case "challenger":     rankWindow = [80, 350]; break
+    case "futures":        rankWindow = [200, 1500]; break
+    default:               rankWindow = [1, 200]
   }
 
-  const field = rivals
-    .filter(
-      r =>
-        r.id !== "USER" &&
-        r.rank <= maxRank
-    )
+  if (isDirect && userRival.rank > rankWindow[1]) {
+    rankWindow = [rankWindow[0], userRival.rank]
+  }
+
+  const pool = rivals
+    .filter(r => r.id !== "USER" && r.rank >= rankWindow[0] && r.rank <= rankWindow[1])
     .sort((a, b) => a.rank - b.rank)
-    .slice(0, size - (isDirect ? 1 : 0))
 
-  // seeds
+  const slotsForRivals = size - (isDirect ? 1 : 0)
+  const field = pool.slice(0, slotsForRivals)
+
   const seeded = field.slice(0, 8)
-
-  // resto aleatorio
   const unseeded = field.slice(8)
 
   for (let i = unseeded.length - 1; i > 0; i--) {
@@ -123,56 +103,43 @@ function buildDraw(
   }
 
   const slots: (Rival | null)[] = new Array(size).fill(null)
-
   const seedPos = [
-    0,
-    size - 1,
-    Math.floor(size / 2) - 1,
-    Math.floor(size / 2),
-    Math.floor(size / 4) - 1,
-    Math.floor(size * 3 / 4),
-    Math.floor(size / 4),
-    Math.floor(size * 3 / 4) - 1,
+    0, size - 1,
+    Math.floor(size / 2) - 1, Math.floor(size / 2),
+    Math.floor(size / 4) - 1, Math.floor(size * 3 / 4),
+    Math.floor(size / 4), Math.floor(size * 3 / 4) - 1,
   ]
+  seeded.forEach((s, i) => { if (seedPos[i] !== undefined) slots[seedPos[i]] = s })
 
-  seeded.forEach((s, i) => {
-    if (seedPos[i] !== undefined) slots[seedPos[i]] = s
-  })
+  const toPlace = isDirect ? [...unseeded, userRival] : unseeded
 
-  const toPlace = isDirect
-    ? [...unseeded, userRival]
-    : unseeded
+  for (let i = toPlace.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[toPlace[i], toPlace[j]] = [toPlace[j], toPlace[i]]
+  }
 
   let pi = 0
-
   for (let i = 0; i < slots.length; i++) {
-    if (!slots[i]) {
-      slots[i] = toPlace[pi++] ?? null
-    }
+    if (!slots[i]) slots[i] = toPlace[pi++] ?? null
   }
 
   const matches: DrawMatch[] = []
-
   for (let i = 0; i < size / 2; i++) {
     const p1 = slots[i * 2]
     const p2 = slots[i * 2 + 1]
-
     matches.push({
       id: `r0-${i}`,
       round: 0,
       position: i,
-      p1,
-      p2,
+      p1, p2,
       winner: null,
       score: null,
-      isUser:
-        p1?.id === "USER" ||
-        p2?.id === "USER",
+      isUser: p1?.id === "USER" || p2?.id === "USER",
     })
   }
-
   return matches
 }
+
 function simNonUserMatches(matches: DrawMatch[], surface: string): DrawMatch[] {
   return matches.map(m => {
     if (m.isUser || m.winner || !m.p1 || !m.p2) return m
@@ -444,6 +411,7 @@ export function CareerHub({ player }: Props) {
   const [drawMatches, setDrawMatches] = useState<DrawMatch[]>([])
   const [activeMatch, setActiveMatch] = useState<{ config: MatchConfig; userIs: 1 | 2; drawMatchId: string } | null>(null)
   const [matchResult, setMatchResult] = useState<string | null>(null)
+  const [playingQualy, setPlayingQualy] = useState(false)
 
   const rivals = useMemo(() => getRankings(player.tour), [player.tour])
   const playerRank = getPlayerRank(career)
@@ -472,49 +440,41 @@ export function CareerHub({ player }: Props) {
 
   const upcoming = upcomingTournaments(career.date).slice(0, 12)
 
-  const [playingQualy, setPlayingQualy] = useState(false)
+  function enterTournament(t: Tournament) {
+    const status = entryStatus(t.category, playerRank)
+    if (status.kind === "ineligible") return
 
-function enterTournament(t: Tournament) {
-  const status = entryStatus(t.category, playerRank)
-  if (status.kind === "ineligible") return
+    const allRivals = buildLiveRanking(player.tour, career.points, player)
+    const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
 
-  const allRivals = buildLiveRanking(player.tour, career.points, player)
-  const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+    let matches: DrawMatch[] = []
 
-  let matches: DrawMatch[] = []
+    if (status.kind === "direct") {
+      setPlayingQualy(false)
+      matches = buildDraw(t, rivsForDraw, userRival, true)
+    } else {
+      setPlayingQualy(true)
+      const qualyEntry = CATEGORY_INFO[t.category].qualyEntryRank
+      const qualyField = rivsForDraw
+        .filter(r => r.rank <= qualyEntry)
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, 15)
 
-  if (status.kind === "direct") {
-    // Entrada directa al cuadro principal
-    setPlayingQualy(false)
-    matches = buildDraw(t, rivsForDraw, userRival, true)
-  } else {
-    // Clasificación (qualy) — cuadro reducido de 16 jugadores
-    setPlayingQualy(true)
-    const qualyEntry = CATEGORY_INFO[t.category].qualyEntryRank
-    const qualyField = rivsForDraw
-      .filter(r => r.rank <= qualyEntry)
-      .sort((a, b) => a.rank - b.rank)
-      .slice(0, 15)
+      matches = buildDraw(
+        { ...t, category: "challenger" },
+        qualyField,
+        userRival,
+        true
+      )
+    }
 
-    matches = buildDraw(
-      { ...t, category: "challenger" }, // reutiliza un draw chico (16/32)
-      qualyField,
-      userRival,
-      true
-    )
+    matches = simNonUserMatches(matches, t.surface)
+
+    setSelectedT(t)
+    setDrawMatches(matches)
+    setMatchResult(null)
+    setView("draw")
   }
-
-  matches = simNonUserMatches(matches, t.surface)
-
-  setSelectedT(t)
-  setDrawMatches(matches)
-  setMatchResult(null)
-  setView("draw")
-}
-
-
-const [playingQualy, setPlayingQualy] = useState(false)
-
 
   function handleUserMatchClick(m: DrawMatch) {
     if (!selectedT || !m.p1 || !m.p2) return
@@ -529,6 +489,7 @@ const [playingQualy, setPlayingQualy] = useState(false)
       finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
     }
     setActiveMatch({ config, userIs, drawMatchId: m.id })
+    setMatchResult(null)
     setView("match")
   }
 
@@ -537,7 +498,6 @@ const [playingQualy, setPlayingQualy] = useState(false)
     const userWon = state.winner === activeMatch.userIs
     const score = formatMatchScore(state, activeMatch.userIs)
 
-    // Find round info for points/prize
     const info = CATEGORY_INFO[selectedT.category]
     const rounds = Math.log2(info.drawSize)
     const currentRound = drawMatches.filter(m => m.round === Math.max(...drawMatches.map(x => x.round))).length > 0
@@ -546,7 +506,6 @@ const [playingQualy, setPlayingQualy] = useState(false)
     const ptsEarned = userWon ? pointsForResult(selectedT.category, rounds, currentRound + 1) : pointsForResult(selectedT.category, rounds, currentRound)
     const prizeEarned = userWon ? prizeForResult(selectedT.category, rounds, currentRound + 1) : prizeForResult(selectedT.category, rounds, currentRound)
 
-    // Update draw
     const updatedMatches = drawMatches.map(m => {
       if (m.id !== activeMatch.drawMatchId) return m
       const winner = userWon
@@ -555,15 +514,26 @@ const [playingQualy, setPlayingQualy] = useState(false)
       return { ...m, winner, score }
     })
 
-    // Advance draw if user won
+    // Advance draw — if user won, they advance too; if not, simulate rest of bracket
     let finalMatches = updatedMatches
     if (userWon) {
       finalMatches = advanceDraw(updatedMatches, selectedT.surface)
+    } else {
+      finalMatches = advanceDraw(updatedMatches, selectedT.surface)
+      let guard = 0
+      while (guard < 10) {
+        const maxR = Math.max(...finalMatches.map(m => m.round))
+        const roundMatches = finalMatches.filter(m => m.round === maxR)
+        if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+        const allDecided = roundMatches.every(m => m.winner)
+        if (!allDecided) break
+        finalMatches = advanceDraw(finalMatches, selectedT.surface)
+        guard++
+      }
     }
 
     setDrawMatches(finalMatches)
 
-    // Update career
     const newPoints = career.points + ptsEarned
     const newMoney = career.money + prizeEarned - (selectedT.entryFee ?? 0)
     const resultMsg = userWon
@@ -593,8 +563,7 @@ const [playingQualy, setPlayingQualy] = useState(false)
     }))
 
     setMatchResult(resultMsg)
-    setActiveMatch(null)
-    setView("draw")
+    // No cambiamos de vista — el usuario se queda viendo el resultado y stats del partido
   }
 
   function advanceWeek() {
@@ -723,11 +692,43 @@ const [playingQualy, setPlayingQualy] = useState(false)
               <div className="flex gap-1 mt-0.5">{catBadge(selectedT.category)}{surfaceBadge(selectedT.surface)}</div>
             </div>
           </div>
+
           {matchResult && (
             <div className={`rounded-xl p-3 text-sm font-semibold border ${matchResult.startsWith("✅") ? "bg-green-900/30 border-green-700 text-green-300" : "bg-red-900/30 border-red-700 text-red-300"}`}>
               {matchResult}
             </div>
           )}
+
+          {matchResult?.startsWith("❌") && (() => {
+            const maxR = Math.max(...drawMatches.map(m => m.round))
+            const roundMatches = drawMatches.filter(m => m.round === maxR)
+            const allDecided = roundMatches.every(m => m.winner)
+            const isFinalDecided = roundMatches.length === 1 && roundMatches[0]?.winner
+
+            if (isFinalDecided) {
+              const champion = roundMatches[0].winner
+              return (
+                <div className="bg-yellow-500/10 border border-yellow-600 rounded-xl p-3 text-sm text-yellow-300 text-center">
+                  🏆 Campeón: {champion?.firstName} {champion?.lastName}
+                </div>
+              )
+            }
+
+            return (
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => {
+                  if (allDecided) {
+                    setDrawMatches(advanceDraw(drawMatches, selectedT.surface))
+                  }
+                }}
+              >
+                ▶ Simular próxima ronda
+              </Button>
+            )
+          })()}
+
           <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
         </div>
       )}
@@ -747,6 +748,11 @@ const [playingQualy, setPlayingQualy] = useState(false)
             userIs={activeMatch.userIs}
             onEnd={handleMatchEnd}
           />
+          {matchResult && (
+            <Button className="w-full" onClick={() => { setActiveMatch(null); setView("draw") }}>
+              Volver al cuadro
+            </Button>
+          )}
         </div>
       )}
     </div>
