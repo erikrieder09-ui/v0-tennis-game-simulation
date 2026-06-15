@@ -412,7 +412,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match"
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking"
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => createCareer(player))
@@ -624,6 +624,9 @@ export function CareerHub({ player }: Props) {
               🎾 {selectedT.name}
             </Button>
           )}
+          <Button size="sm" variant={view === "ranking" ? "default" : "outline"} onClick={() => setView("ranking")}>
+      📊 Ranking
+    </Button>
         </div>
       )}
 
@@ -745,6 +748,26 @@ export function CareerHub({ player }: Props) {
           <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
 
           <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
+        </div>
+      )}
+
+      {/* RANKING */}
+      {view === "ranking" && (
+        <div className="space-y-2">
+          <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
+          {buildLiveRanking(player.tour, career.points, player).slice(0, 50).map(r => (
+            <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
+              ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
+              <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
+                #{r.rank}
+              </span>
+              <span className={`flex-1 text-sm ${r.isUser ? "text-yellow-300 font-bold" : "text-zinc-200"}`}>
+                {r.firstName} {r.lastName}
+              </span>
+              <span className="text-xs text-zinc-500">{r.nationality}</span>
+              <span className="text-xs font-mono text-zinc-400">{r.points} pts</span>
+            </div>
+          ))}
         </div>
       )}
 
