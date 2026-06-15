@@ -137,19 +137,26 @@ export type EntryStatus =
 /** Determine how the player enters a tournament given their rank. */
 export function entryStatus(category: Category, rank: number): EntryStatus {
   const info = CATEGORY_INFO[category]
+  const qualyEligible = category === "grand-slam" || category === "masters-1000"
+
   if (rank <= info.directEntryRank) {
     return { kind: "direct", label: "Entrada directa al cuadro principal" }
   }
-  if (info.hasQualy && rank <= info.qualyEntryRank) {
-    // 2 qualy rounds for most, 3 for slams
+  if (qualyEligible && info.hasQualy && rank <= info.qualyEntryRank) {
     const rounds = category === "grand-slam" ? 3 : 2
     return { kind: "qualy", label: `Debés jugar ${rounds} rondas de clasificación (qualy)`, rounds }
   }
-  if (!info.hasQualy && rank <= info.qualyEntryRank) {
+  if (rank <= info.qualyEntryRank) {
     return { kind: "direct", label: "Entrada directa al cuadro principal" }
   }
   return { kind: "ineligible", label: "Tu ranking es demasiado alto/bajo para inscribirte" }
 }
+
+  return {
+    kind: "ineligible",
+    label: "No tenés ranking suficiente",
+  }
+
 
 export function divisionForCategory(category: Category): Division {
   switch (category) {
