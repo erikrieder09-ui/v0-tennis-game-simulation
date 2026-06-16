@@ -75,7 +75,7 @@ function buildDraw(
 
   let rankWindow: [number, number]
 switch (t.category) {
-  case "grand-slam":     rankWindow = [1, 110]; break
+  case "grand-slam":     rankWindow = [1, 128]; break
   case "masters-1000":   rankWindow = [1, 75]; break
   case "atp-500":        rankWindow = [1, 60]; break
   case "atp-250":        rankWindow = [15, 110]; break
@@ -708,10 +708,10 @@ if (playingQualy && userWon) {
                   </div>
                   <div className="text-xs text-zinc-500 shrink-0">{t.date}</div>
                   {status.kind !== "ineligible" ? (
-                    <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
-                  ) : (
-                    <span className="text-xs text-zinc-600">No elegible</span>
-                  )}
+  <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
+) : (
+  <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
+)}
                 </div>
               )
             })}
@@ -746,10 +746,10 @@ if (playingQualy && userWon) {
                   <div className="text-xs mt-1 text-zinc-400">{status.label}</div>
                 </div>
                 {status.kind !== "ineligible" ? (
-                  <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
-                ) : (
-                  <span className="text-xs text-zinc-600 shrink-0">No elegible</span>
-                )}
+  <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
+) : (
+  <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
+)}
               </div>
             )
           })}
