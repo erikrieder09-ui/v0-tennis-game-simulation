@@ -476,19 +476,29 @@ export function CareerHub({ player }: Props) {
   CATEGORY_INFO[t.category].bestOf
 )
   let guard = 0
-  while (guard < 10) {
-    const maxR = Math.max(...matches.map(m => m.round))
-    const roundMatches = matches.filter(m => m.round === maxR)
-    if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
-    const allDecided = roundMatches.every(m => m.winner)
-    if (!allDecided) break
+while (guard < 10) {
+  const maxR = Math.max(...matches.map(m => m.round))
+  const roundMatches = matches.filter(m => m.round === maxR)
+  if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+
+  const allDecided = roundMatches.every(m => m.winner)
+  
+  if (!allDecided) {
+    // Simular los partidos pendientes de esta ronda antes de avanzar
+    matches = simNonUserMatches(
+      matches,
+      t.surface,
+      CATEGORY_INFO[t.category].bestOf
+    )
+  } else {
     matches = advanceDraw(
-  matches,
-  t.surface,
-  CATEGORY_INFO[t.category].bestOf
-)
-    guard++
+      matches,
+      t.surface,
+      CATEGORY_INFO[t.category].bestOf
+    )
   }
+  guard++
+}
   setSelectedT(t)
   setDrawMatches(matches)
   setMatchResult(null)
@@ -589,18 +599,27 @@ export function CareerHub({ player }: Props) {
 )
     // Simular todas las rondas hasta el campeón
     let guard = 0
-    while (guard < 10) {
-      const maxR = Math.max(...mainMatches.map(m => m.round))
-      const roundMatches = mainMatches.filter(m => m.round === maxR)
-      if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
-      const allDecided = roundMatches.every(m => m.winner)
-      if (!allDecided) break
-      mainMatches = advanceDraw(
-  mainMatches,
-  selectedT!.surface,
-  CATEGORY_INFO[selectedT!.category].bestOf
-)
-      guard++
+while (guard < 10) {
+  const maxR = Math.max(...mainMatches.map(m => m.round))
+  const roundMatches = mainMatches.filter(m => m.round === maxR)
+  if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+  const allDecided = roundMatches.every(m => m.winner)
+  
+  if (!allDecided) {
+    mainMatches = simNonUserMatches(
+      mainMatches,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  } else {
+    mainMatches = advanceDraw(
+      mainMatches,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  }
+  guard++
+
     }
     finalMatches = mainMatches
   } else {
