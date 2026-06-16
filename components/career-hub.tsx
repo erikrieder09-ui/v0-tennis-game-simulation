@@ -457,7 +457,28 @@ export function CareerHub({ player }: Props) {
   function enterTournament(t: Tournament) {
     const status = entryStatus(t.category, playerRank)
     console.log("DEBUG entryTournament:", t.name, "playerRank:", playerRank, "status:", status)
-    if (status.kind === "ineligible") return
+    if (status.kind === "ineligible") {
+  // Simular el torneo sin el usuario para que pueda verlo
+  const allRivals = buildLiveRanking(player.tour, career.points, player)
+  const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+  let matches = buildDraw(t, rivsForDraw, userRival, false)
+  matches = simNonUserMatches(matches, t.surface)
+  let guard = 0
+  while (guard < 10) {
+    const maxR = Math.max(...matches.map(m => m.round))
+    const roundMatches = matches.filter(m => m.round === maxR)
+    if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+    const allDecided = roundMatches.every(m => m.winner)
+    if (!allDecided) break
+    matches = advanceDraw(matches, t.surface)
+    guard++
+  }
+  setSelectedT(t)
+  setDrawMatches(matches)
+  setMatchResult(null)
+  setView("draw")
+  return
+}
 
     setPlayedTournaments(prev => new Set(prev).add(t.id))
 
@@ -531,18 +552,40 @@ export function CareerHub({ player }: Props) {
     if (userWon) {
       finalMatches = advanceDraw(updatedMatches, selectedT.surface)
     } else {
-      finalMatches = advanceDraw(updatedMatches, selectedT.surface)
-      let guard = 0
-      while (guard < 10) {
-        const maxR = Math.max(...finalMatches.map(m => m.round))
-        const roundMatches = finalMatches.filter(m => m.round === maxR)
-        if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
-        const allDecided = roundMatches.every(m => m.winner)
-        if (!allDecided) break
-        finalMatches = advanceDraw(finalMatches, selectedT.surface)
-        guard++
-      }
+  // Si perdió en qualy, generar y simular el cuadro principal completo
+  if (playingQualy) {
+    setPlayingQualy(false)
+    const allRivals = buildLiveRanking(player.tour, career.points, player)
+    const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+    let mainMatches = buildDraw(selectedT!, rivsForDraw, { ...userRival, id: "ELIMINATED" }, false)
+    mainMatches = simNonUserMatches(mainMatches, selectedT!.surface)
+    // Simular todas las rondas hasta el campeón
+    let guard = 0
+    while (guard < 10) {
+      const maxR = Math.max(...mainMatches.map(m => m.round))
+      const roundMatches = mainMatches.filter(m => m.round === maxR)
+      if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+      const allDecided = roundMatches.every(m => m.winner)
+      if (!allDecided) break
+      mainMatches = advanceDraw(mainMatches, selectedT!.surface)
+      guard++
     }
+    finalMatches = mainMatches
+  } else {
+    // Perdió en cuadro principal — simular el resto
+    finalMatches = advanceDraw(updatedMatches, selectedT.surface)
+    let guard = 0
+    while (guard < 10) {
+      const maxR = Math.max(...finalMatches.map(m => m.round))
+      const roundMatches = finalMatches.filter(m => m.round === maxR)
+      if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+      const allDecided = roundMatches.every(m => m.winner)
+      if (!allDecided) break
+      finalMatches = advanceDraw(finalMatches, selectedT.surface)
+      guard++
+    }
+  }
+}
 
     setDrawMatches(finalMatches)
 
