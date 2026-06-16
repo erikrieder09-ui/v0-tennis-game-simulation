@@ -630,19 +630,27 @@ while (guard < 10) {
   CATEGORY_INFO[selectedT.category].bestOf
 )
     let guard = 0
-    while (guard < 10) {
-      const maxR = Math.max(...finalMatches.map(m => m.round))
-      const roundMatches = finalMatches.filter(m => m.round === maxR)
-      if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
-      const allDecided = roundMatches.every(m => m.winner)
-      if (!allDecided) break
-      finalMatches = advanceDraw(
-  finalMatches,
-  selectedT.surface,
-  CATEGORY_INFO[selectedT.category].bestOf
-)
-      guard++
-    }
+while (guard < 10) {
+  const maxR = Math.max(...finalMatches.map(m => m.round))
+  const roundMatches = finalMatches.filter(m => m.round === maxR)
+  if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
+  const allDecided = roundMatches.every(m => m.winner)
+  
+  if (!allDecided) {
+    finalMatches = simNonUserMatches(
+      finalMatches,
+      selectedT.surface,
+      CATEGORY_INFO[selectedT.category].bestOf
+    )
+  } else {
+    finalMatches = advanceDraw(
+      finalMatches,
+      selectedT.surface,
+      CATEGORY_INFO[selectedT.category].bestOf
+    )
+  }
+  guard++
+}
   }
 }
 
@@ -698,6 +706,28 @@ if (playingQualy && userWon) {
 
     setMatchResult(resultMsg)
   }
+
+function handleSimularRonda() {
+  let current = drawMatches
+  const maxR = Math.max(...current.map(m => m.round))
+  const roundMatches = current.filter(m => m.round === maxR)
+  const allDecided = roundMatches.every(m => m.winner)
+
+  if (!allDecided) {
+    current = simNonUserMatches(
+      current,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  } else {
+    current = advanceDraw(
+      current,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  }
+  setDrawMatches(current)
+}
 
   function advanceWeek() {
     setCareer(prev => ({
@@ -847,10 +877,14 @@ if (playingQualy && userWon) {
             if (isFinalDecided) {
               const champion = roundMatches[0].winner
               return (
-                <div className="bg-yellow-500/10 border border-yellow-600 rounded-xl p-3 text-sm text-yellow-300 text-center">
-                  🏆 Campeón: {champion?.firstName} {champion?.lastName}
-                </div>
-              )
+  <Button
+    className="w-full"
+    variant="outline"
+    onClick={handleSimularRonda}
+  >
+    ▶ Simular próxima ronda
+  </Button>
+)
             }
 
             return (
@@ -859,13 +893,34 @@ if (playingQualy && userWon) {
                 variant="outline"
                 onClick={() => {
                   if (allDecided) {
-                    setDrawMatches(
+                     setDrawMatches(
   advanceDraw(
     drawMatches,
     selectedT.surface,
     CATEGORY_INFO[selectedT.category].bestOf
   )
 )
+function handleSimularRonda() {
+  let current = drawMatches
+  const maxR = Math.max(...current.map(m => m.round))
+  const roundMatches = current.filter(m => m.round === maxR)
+  const allDecided = roundMatches.every(m => m.winner)
+
+  if (!allDecided) {
+    current = simNonUserMatches(
+      current,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  } else {
+    current = advanceDraw(
+      current,
+      selectedT!.surface,
+      CATEGORY_INFO[selectedT!.category].bestOf
+    )
+  }
+  setDrawMatches(current)
+}
                   }
                 }}
               >
