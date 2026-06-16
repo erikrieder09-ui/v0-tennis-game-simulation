@@ -714,12 +714,25 @@ function handleSimularRonda() {
   const roundMatches = current.filter(m => m.round === maxR)
   const allDecided = roundMatches.every(m => m.winner)
 
+  console.log("maxR:", maxR)
+  console.log("roundMatches:", roundMatches.length)
+  console.log("allDecided:", allDecided)
+  console.log("con winner:", roundMatches.filter(m => m.winner).length)
   if (!allDecided) {
     current = simNonUserMatches(
       current,
       selectedT!.surface,
       CATEGORY_INFO[selectedT!.category].bestOf
     )
+    // Si ahora están todos decididos, avanzar en el mismo click
+    const nowAllDecided = current.filter(m => m.round === maxR).every(m => m.winner)
+    if (nowAllDecided) {
+      current = advanceDraw(
+        current,
+        selectedT!.surface,
+        CATEGORY_INFO[selectedT!.category].bestOf
+      )
+    }
   } else {
     current = advanceDraw(
       current,
