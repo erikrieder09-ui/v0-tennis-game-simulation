@@ -152,13 +152,17 @@ if (availableInWindow < slotsNeeded) {
   return matches
 }
 
-function simNonUserMatches(matches: DrawMatch[], surface: string): DrawMatch[] {
+function simNonUserMatches(
+  matches: DrawMatch[],
+  surface: string,
+  bestOf: 3 | 5
+): DrawMatch[] {
   return matches.map(m => {
     if (m.isUser || m.winner || !m.p1 || !m.p2) return m
     const config: MatchConfig = {
       player1: m.p1, player2: m.p2,
       surface: surface as any,
-      bestOf: 3, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+      bestOf: bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
     }
     const result = simulateFullMatch(config)
     const w = result.winner === 1 ? m.p1 : m.p2
@@ -166,7 +170,11 @@ function simNonUserMatches(matches: DrawMatch[], surface: string): DrawMatch[] {
   })
 }
 
-function advanceDraw(matches: DrawMatch[], surface: string): DrawMatch[] {
+function advanceDraw(
+  matches: DrawMatch[],
+  surface: string,
+  bestOf: 3 | 5
+): DrawMatch[] {
   const maxRound = Math.max(...matches.map(m => m.round))
   const roundMatches = matches.filter(m => m.round === maxRound && m.winner)
   if (roundMatches.length < 2) return matches
@@ -195,7 +203,7 @@ function advanceDraw(matches: DrawMatch[], surface: string): DrawMatch[] {
     const config: MatchConfig = {
       player1: m.p1, player2: m.p2,
       surface: surface as any,
-      bestOf: 3, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+      bestOf: bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
     }
     const result = simulateFullMatch(config)
     return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1) }
@@ -462,7 +470,11 @@ export function CareerHub({ player }: Props) {
   const allRivals = buildLiveRanking(player.tour, career.points, player)
   const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
   let matches = buildDraw(t, rivsForDraw, userRival, false)
-  matches = simNonUserMatches(matches, t.surface)
+  matches = simNonUserMatches(
+  matches,
+  t.surface,
+  CATEGORY_INFO[t.category].bestOf
+)
   let guard = 0
   while (guard < 10) {
     const maxR = Math.max(...matches.map(m => m.round))
@@ -470,7 +482,11 @@ export function CareerHub({ player }: Props) {
     if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
     const allDecided = roundMatches.every(m => m.winner)
     if (!allDecided) break
-    matches = advanceDraw(matches, t.surface)
+    matches = advanceDraw(
+  matches,
+  t.surface,
+  CATEGORY_INFO[t.category].bestOf
+)
     guard++
   }
   setSelectedT(t)
@@ -502,7 +518,11 @@ export function CareerHub({ player }: Props) {
   matches = buildDraw(t, qualyField, userRival, true, 16)
 }
 
-    matches = simNonUserMatches(matches, t.surface)
+    simNonUserMatches(
+  matches,
+  t.surface,
+  CATEGORY_INFO[t.category].bestOf
+)
 
     setSelectedT(t)
     setDrawMatches(matches)
@@ -550,7 +570,11 @@ export function CareerHub({ player }: Props) {
 
     let finalMatches = updatedMatches
     if (userWon) {
-      finalMatches = advanceDraw(updatedMatches, selectedT.surface)
+      advanceDraw(
+  updatedMatches,
+  selectedT.surface,
+  CATEGORY_INFO[selectedT.category].bestOf
+)
     } else {
   // Si perdió en qualy, generar y simular el cuadro principal completo
   if (playingQualy) {
@@ -558,7 +582,11 @@ export function CareerHub({ player }: Props) {
     const allRivals = buildLiveRanking(player.tour, career.points, player)
     const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
     let mainMatches = buildDraw(selectedT!, rivsForDraw, { ...userRival, id: "ELIMINATED" }, false)
-    mainMatches = simNonUserMatches(mainMatches, selectedT!.surface)
+    mainMatches = simNonUserMatches(
+  mainMatches,
+  selectedT!.surface,
+  CATEGORY_INFO[selectedT!.category].bestOf
+)
     // Simular todas las rondas hasta el campeón
     let guard = 0
     while (guard < 10) {
@@ -567,13 +595,21 @@ export function CareerHub({ player }: Props) {
       if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
       const allDecided = roundMatches.every(m => m.winner)
       if (!allDecided) break
-      mainMatches = advanceDraw(mainMatches, selectedT!.surface)
+      mainMatches = advanceDraw(
+  mainMatches,
+  selectedT!.surface,
+  CATEGORY_INFO[selectedT!.category].bestOf
+)
       guard++
     }
     finalMatches = mainMatches
   } else {
     // Perdió en cuadro principal — simular el resto
-    finalMatches = advanceDraw(updatedMatches, selectedT.surface)
+    finalMatches = advanceDraw(
+  updatedMatches,
+  selectedT.surface,
+  CATEGORY_INFO[selectedT.category].bestOf
+)
     let guard = 0
     while (guard < 10) {
       const maxR = Math.max(...finalMatches.map(m => m.round))
@@ -581,7 +617,11 @@ export function CareerHub({ player }: Props) {
       if (roundMatches.length <= 1 && roundMatches[0]?.winner) break
       const allDecided = roundMatches.every(m => m.winner)
       if (!allDecided) break
-      finalMatches = advanceDraw(finalMatches, selectedT.surface)
+      finalMatches = advanceDraw(
+  finalMatches,
+  selectedT.surface,
+  CATEGORY_INFO[selectedT.category].bestOf
+)
       guard++
     }
   }
@@ -627,7 +667,11 @@ if (playingQualy && userWon) {
     const allRivals = buildLiveRanking(player.tour, career.points, player)
     const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
     const mainMatches = buildDraw(selectedT!, rivsForDraw, userRival, true)
-    const simmedMain = simNonUserMatches(mainMatches, selectedT!.surface)
+    const simmedMain = simNonUserMatches(
+  mainMatches,
+  selectedT!.surface,
+  CATEGORY_INFO[selectedT!.category].bestOf
+)
     setDrawMatches(simmedMain)
     setPlayingQualy(false)
   }
@@ -796,7 +840,13 @@ if (playingQualy && userWon) {
                 variant="outline"
                 onClick={() => {
                   if (allDecided) {
-                    setDrawMatches(advanceDraw(drawMatches, selectedT.surface))
+                    setDrawMatches(
+  advanceDraw(
+    drawMatches,
+    selectedT.surface,
+    CATEGORY_INFO[selectedT.category].bestOf
+  )
+)
                   }
                 }}
               >
