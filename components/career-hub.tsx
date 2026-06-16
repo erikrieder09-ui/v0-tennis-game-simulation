@@ -423,6 +423,7 @@ export function CareerHub({ player }: Props) {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [playingQualy, setPlayingQualy] = useState(false)
   const [playedTournaments, setPlayedTournaments] = useState<Set<string>>(new Set())
+  const [qualyCompleted, setQualyCompleted] = useState(false)
 
   const rivals = useMemo(() => getRankings(player.tour), [player.tour])
   const playerRank = getPlayerRank(career)
@@ -572,6 +573,22 @@ export function CareerHub({ player }: Props) {
         surface: selectedT.surface,
       }],
     }))
+
+// Si estábamos en qualy y el usuario ganó la final de qualy → transición al main draw
+if (playingQualy && userWon) {
+  const maxR = Math.max(...finalMatches.map(m => m.round))
+  const qualyRounds = Math.log2(16) - 1 // 3 rondas para cuadro de 16
+  if (currentRound >= qualyRounds) {
+    // El usuario ganó la qualy — generamos el cuadro principal
+    setQualyCompleted(true)
+    const allRivals = buildLiveRanking(player.tour, career.points, player)
+    const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+    const mainMatches = buildDraw(selectedT!, rivsForDraw, userRival, true)
+    const simmedMain = simNonUserMatches(mainMatches, selectedT!.surface)
+    setDrawMatches(simmedMain)
+    setPlayingQualy(false)
+  }
+}
 
     setMatchResult(resultMsg)
   }
@@ -745,17 +762,29 @@ export function CareerHub({ player }: Props) {
             )
           })()}
 
-          <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
+          {playingQualy && !qualyCompleted && (
+  <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-3 text-sm text-blue-300">
+    🎾 Clasificación — Ganando esta fase accedés al cuadro principal
+  </div>
+)}
+
+{qualyCompleted && (
+  <div className="bg-green-900/30 border border-green-700 rounded-xl p-3 text-sm text-green-300 font-bold">
+    ✅ ¡Clasificado! Ahora jugás el cuadro principal
+  </div>
+)}
 
           <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
+
         </div>
+
       )}
 
       {/* RANKING */}
       {view === "ranking" && (
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
-          {buildLiveRanking(player.tour, career.points, player).slice(0, 50).map(r => (
+          {buildLiveRanking(player.tour, career.points, player).slice(0, 249).map(r => (
             <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
               ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
               <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
