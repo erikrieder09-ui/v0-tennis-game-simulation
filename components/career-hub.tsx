@@ -580,11 +580,12 @@ while (guard < 10) {
 
     let finalMatches = updatedMatches
     if (userWon) {
-      advanceDraw(
-  updatedMatches,
-  selectedT.surface,
-  CATEGORY_INFO[selectedT.category].bestOf
-)
+  finalMatches = advanceDraw(
+    updatedMatches,
+    selectedT.surface,
+    CATEGORY_INFO[selectedT.category].bestOf
+  )
+
     } else {
   // Si perdió en qualy, generar y simular el cuadro principal completo
   if (playingQualy) {
