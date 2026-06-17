@@ -42,7 +42,13 @@ export interface CareerState {
   matchesLost: number
   history: MatchRecord[]
   log: string[]
+  busyPlayers: string[]
+/** resultado final guardado por torneo, para que no se regenere cada vez que se entra */
+  tournamentResults: Record<string, any>
+  /** puntos extra acumulados por rivales que ganaron torneos (rivalId -> puntos extra) */
+  rivalBonusPoints: Record<string, number>
 }
+
 
 const SEASON_START = "2026-06-08" // Monday, start of the grass swing
 
@@ -62,24 +68,26 @@ export function createCareer(player: PlayerProfile): CareerState {
   const startRank = 230 + Math.floor(Math.random() * 21)
   const points = pointsForRank(startRank) + Math.floor(Math.random() * 15)
   return {
-    player,
-    points,
-    bestRank: startRank,
-    money: 3000,
-    date: SEASON_START,
-    mentalityXp: 0,
-    mentalTrainings: 0,
-    fitness: 100,
-    injuryWeeksLeft: 0,
-    injuryLabel: null,
-    titles: 0,
-    matchesWon: 0,
-    matchesLost: 0,
-    history: [],
-    log: ["Arrancás tu carrera profesional. ¡A escalar el ranking!"],
-  }
+  player,
+  points,
+  bestRank: startRank,
+  money: 3000,
+  date: SEASON_START,
+  mentalityXp: 0,
+  mentalTrainings: 0,
+  fitness: 100,
+  injuryWeeksLeft: 0,
+  injuryLabel: null,
+  titles: 0,
+  matchesWon: 0,
+  matchesLost: 0,
+  history: [],
+  log: ["Arrancás tu carrera profesional. ¡A escalar el ranking!"],
+  busyPlayers: [],
+  tournamentResults: {},
+  rivalBonusPoints: {},
 }
-
+}
 /* -------------------------------------------------------------------------- */
 /*  Ranking with the player inserted by POINTS                                 */
 /* -------------------------------------------------------------------------- */
@@ -88,7 +96,12 @@ export interface RankedPlayer extends Rival {
   isUser?: boolean
 }
 
-export function buildLiveRanking(tour: Tour, userPoints: number, player: PlayerProfile): RankedPlayer[] {
+export function buildLiveRanking(
+  tour: Tour,
+  userPoints: number,
+  player: PlayerProfile,
+  rivalBonusPoints: Record<string, number> = {}
+): RankedPlayer[] {
   const base = getRankings(tour)
   const userOverall = computeOverall(player.attributes, player.playStyle)
   const userRow: RankedPlayer = {
@@ -110,11 +123,15 @@ export function buildLiveRanking(tour: Tour, userPoints: number, player: PlayerP
     favSurface: "hard",
     injuryProneness: 20,
     currentAbility: userOverall,
-    potentialAbility: userOverall +5,
+    potentialAbility: userOverall + 5,
     isUser: true,
   }
   // Exclude the deepest rival so the field size stays constant after insertion.
-  const merged = [...base.slice(0, base.length - 1), userRow].sort(
+  const withBonus = base.slice(0, base.length - 1).map(r => {
+    const bonus = rivalBonusPoints[r.id] ?? 0
+    return bonus > 0 ? { ...r, points: r.points + bonus } : r
+  })
+  const merged = [...withBonus, userRow].sort(
     (a, b) => b.points - a.points || b.overall - a.overall,
   )
   merged.forEach((r, i) => {

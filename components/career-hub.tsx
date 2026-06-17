@@ -490,8 +490,19 @@ export function CareerHub({ player }: Props) {
     const status = entryStatus(t.category, playerRank)
     const bestOf = CATEGORY_INFO[t.category].bestOf
 
+    // Si ya jugamos/simulamos este torneo antes, mostramos el resultado guardado
+  if (career.tournamentResults[t.id]) {
+    setSelectedT(t)
+    setDrawMatches(career.tournamentResults[t.id])
+    setMatchResult(null)
+    setPlayingQualy(false)
+    setQualyCompleted(false)
+    setView("draw")
+    return
+  }
+
     if (status.kind === "ineligible") {
-      const allRivals = buildLiveRanking(player.tour, career.points, player)
+      const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
       const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
       let matches = buildDraw(t, rivsForDraw, userRival, false)
       matches = simNonUserMatches(matches, t.surface, bestOf)
@@ -509,7 +520,7 @@ export function CareerHub({ player }: Props) {
     setPlayedTournaments(prev => new Set(prev).add(t.id))
     setQualyCompleted(false)
 
-    const allRivals = buildLiveRanking(player.tour, career.points, player)
+    const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
     const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
 
     let matches: DrawMatch[] = []
@@ -586,7 +597,7 @@ export function CareerHub({ player }: Props) {
         const qualyRounds = Math.log2(16) - 1
         if (currentRound >= qualyRounds - 1) {
           justClassified = true
-          const allRivals = buildLiveRanking(player.tour, career.points, player)
+          const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
           const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
           let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, true)
           mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
@@ -595,7 +606,7 @@ export function CareerHub({ player }: Props) {
       }
     } else {
       if (playingQualy) {
-        const allRivals = buildLiveRanking(player.tour, career.points, player)
+        const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
         const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
         let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, false)
         mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
@@ -613,6 +624,24 @@ export function CareerHub({ player }: Props) {
       setPlayingQualy(false)
     }
 
+    // Si el torneo llegó a tener un campeón, lo guardamos como resultado final
+    // y le damos puntos bonus al campeón (si no es el usuario)
+    const maxRFinal = Math.max(...finalMatches.map(m => m.round))
+    const lastRoundMatches = finalMatches.filter(m => m.round === maxRFinal)
+    const tournamentFinished = lastRoundMatches.length === 1 && !!lastRoundMatches[0].winner
+
+    let bonusUpdate: Record<string, number> | null = null
+    if (tournamentFinished) {
+      const champion = lastRoundMatches[0].winner
+      if (champion && champion.id !== "USER") {
+        const bonus = CATEGORY_INFO[selectedT.category].winnerPoints
+        bonusUpdate = {
+          ...career.rivalBonusPoints,
+          [champion.id]: (career.rivalBonusPoints[champion.id] ?? 0) + bonus,
+        }
+      }
+    }
+
     const newPoints = career.points + ptsEarned
     const newMoney = career.money + prizeEarned - (selectedT.entryFee ?? 0)
     const resultMsg = userWon
@@ -626,6 +655,10 @@ export function CareerHub({ player }: Props) {
       matchesWon: prev.matchesWon + (userWon ? 1 : 0),
       matchesLost: prev.matchesLost + (userWon ? 0 : 1),
       log: [...prev.log, resultMsg],
+      tournamentResults: tournamentFinished
+        ? { ...prev.tournamentResults, [selectedT.id]: finalMatches }
+        : prev.tournamentResults,
+      rivalBonusPoints: bonusUpdate ?? prev.rivalBonusPoints,
       history: [...prev.history, {
         id: `${selectedT.id}-${Date.now()}`,
         date: career.date,
@@ -847,7 +880,7 @@ export function CareerHub({ player }: Props) {
       {view === "ranking" && (
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
-          {buildLiveRanking(player.tour, career.points, player).slice(0, 249).map(r => (
+          {buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints).slice(0, 249).map(r => (
             <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
               ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
               <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
