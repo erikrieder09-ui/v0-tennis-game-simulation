@@ -63,6 +63,39 @@ interface DrawMatch {
   isUser: boolean
 }
 
+/**
+ * Calcula puntos de torneo para cada participante según hasta qué ronda llegó,
+ * usando una escala proporcional a winnerPoints de la categoría.
+ */
+function computeTournamentPointsBonus(
+  matches: DrawMatch[],
+  category: Tournament["category"],
+  existingBonus: Record<string, number>
+): Record<string, number> {
+  const winnerPoints = CATEGORY_INFO[category].winnerPoints
+  const maxRound = Math.max(...matches.map(m => m.round))
+  const updated = { ...existingBonus }
+
+  // Para cada partido, el perdedor recibe puntos según la ronda en que cayó.
+  // El campeón (ganador de la última ronda) recibe el máximo.
+  matches.forEach(m => {
+    if (!m.winner) return
+    const loser = m.winner.id === m.p1?.id ? m.p2 : m.p1
+    if (loser && loser.id !== "USER") {
+      // Puntos por llegar hasta esta ronda (proporcional, ronda 0 = primera ronda)
+      const roundFraction = (m.round + 1) / (maxRound + 2)
+      const pts = Math.round(winnerPoints * roundFraction * 0.5)
+      updated[loser.id] = (updated[loser.id] ?? 0) + pts
+    }
+    // Si es la última ronda, el ganador es el campeón
+    if (m.round === maxRound && m.winner.id !== "USER") {
+      updated[m.winner.id] = (updated[m.winner.id] ?? 0) + winnerPoints
+    }
+  })
+
+  return updated
+}
+
 function buildDraw(
   t: Tournament,
   rivals: Rival[],
@@ -502,20 +535,28 @@ export function CareerHub({ player }: Props) {
   }
 
     if (status.kind === "ineligible") {
-      const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
-      const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
-      let matches = buildDraw(t, rivsForDraw, userRival, false)
-      matches = simNonUserMatches(matches, t.surface, bestOf)
-      matches = simulateToChampion(matches, t.surface, bestOf)
+  const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
+  const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+  let matches = buildDraw(t, rivsForDraw, userRival, false)
+  matches = simNonUserMatches(matches, t.surface, bestOf)
+  matches = simulateToChampion(matches, t.surface, bestOf)
 
-      setPlayingQualy(false)
-      setQualyCompleted(false)
-      setSelectedT(t)
-      setDrawMatches(matches)
-      setMatchResult(null)
-      setView("draw")
-      return
-    }
+  // Calcular puntos de torneo para todos los participantes y guardarlos
+  const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusPoints)
+  setCareer(prev => ({
+    ...prev,
+    tournamentResults: { ...prev.tournamentResults, [t.id]: matches },
+    rivalBonusPoints: bonusMap,
+  }))
+
+  setPlayingQualy(false)
+  setQualyCompleted(false)
+  setSelectedT(t)
+  setDrawMatches(matches)
+  setMatchResult(null)
+  setView("draw")
+  return
+}
 
     setPlayedTournaments(prev => new Set(prev).add(t.id))
     setQualyCompleted(false)
@@ -625,22 +666,14 @@ export function CareerHub({ player }: Props) {
     }
 
     // Si el torneo llegó a tener un campeón, lo guardamos como resultado final
-    // y le damos puntos bonus al campeón (si no es el usuario)
+    // y repartimos puntos de torneo entre todos los participantes
     const maxRFinal = Math.max(...finalMatches.map(m => m.round))
     const lastRoundMatches = finalMatches.filter(m => m.round === maxRFinal)
     const tournamentFinished = lastRoundMatches.length === 1 && !!lastRoundMatches[0].winner
 
-    let bonusUpdate: Record<string, number> | null = null
-    if (tournamentFinished) {
-      const champion = lastRoundMatches[0].winner
-      if (champion && champion.id !== "USER") {
-        const bonus = CATEGORY_INFO[selectedT.category].winnerPoints
-        bonusUpdate = {
-          ...career.rivalBonusPoints,
-          [champion.id]: (career.rivalBonusPoints[champion.id] ?? 0) + bonus,
-        }
-      }
-    }
+    const bonusUpdate: Record<string, number> | null = tournamentFinished
+      ? computeTournamentPointsBonus(finalMatches, selectedT.category, career.rivalBonusPoints)
+      : null
 
     const newPoints = career.points + ptsEarned
     const newMoney = career.money + prizeEarned - (selectedT.entryFee ?? 0)
