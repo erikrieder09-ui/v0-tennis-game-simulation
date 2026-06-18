@@ -279,6 +279,7 @@ function MatchSimUI({ config, userIs, onEnd }: {
   const [state, setState] = useState<MatchState>(() => createMatchState(config))
   const [log, setLog] = useState<string[]>(["El partido está por comenzar..."])
   const [simming, setSimming] = useState(false)
+  const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
 
   const POINT_LABELS = ["0", "15", "30", "40"]
   const g = state.currentGame
@@ -489,6 +490,7 @@ export function CareerHub({ player }: Props) {
   const [playingQualy, setPlayingQualy] = useState(false)
   const [playedTournaments, setPlayedTournaments] = useState<Set<string>>(new Set())
   const [qualyCompleted, setQualyCompleted] = useState(false)
+  const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
 
   const rivals = useMemo(() => getRankings(player.tour), [player.tour])
   const playerRank = getPlayerRank(career)
@@ -539,15 +541,16 @@ export function CareerHub({ player }: Props) {
   const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
   let matches = buildDraw(t, rivsForDraw, userRival, false)
   matches = simNonUserMatches(matches, t.surface, bestOf)
-  matches = simulateToChampion(matches, t.surface, bestOf)
 
-  // Calcular puntos de torneo para todos los participantes y guardarlos
-  const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusPoints)
-  setCareer(prev => ({
-    ...prev,
-    tournamentResults: { ...prev.tournamentResults, [t.id]: matches },
-    rivalBonusPoints: bonusMap,
-  }))
+  if (autoSimulate === true) {
+    matches = simulateToChampion(matches, t.surface, bestOf)
+    const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusPoints)
+    setCareer(prev => ({
+      ...prev,
+      tournamentResults: { ...prev.tournamentResults, [t.id]: matches },
+      rivalBonusPoints: bonusMap,
+    }))
+  }
 
   setPlayingQualy(false)
   setQualyCompleted(false)
@@ -647,15 +650,21 @@ export function CareerHub({ player }: Props) {
       }
     } else {
       if (playingQualy) {
+        // Perdió en qualy: generar el cuadro principal completo sin el usuario
         const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
         const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
         let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, false)
         mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
-        mainMatches = simulateToChampion(mainMatches, selectedT.surface, bestOf)
+        if (autoSimulate === true) {
+          mainMatches = simulateToChampion(mainMatches, selectedT.surface, bestOf)
+        }
         finalMatches = mainMatches
       } else {
+        // Perdió en cuadro principal: avanzar la ronda actual
         finalMatches = advanceDraw(updatedMatches, selectedT.surface, bestOf)
-        finalMatches = simulateToChampion(finalMatches, selectedT.surface, bestOf)
+        if (autoSimulate === true) {
+          finalMatches = simulateToChampion(finalMatches, selectedT.surface, bestOf)
+        }
       }
     }
 
@@ -730,6 +739,20 @@ export function CareerHub({ player }: Props) {
     } else {
       current = advanceDraw(current, selectedT.surface, bestOf)
     }
+
+    // Si llegamos al campeón, guardamos resultado y repartimos puntos
+    const newMaxR = Math.max(...current.map(m => m.round))
+    const newRoundMatches = current.filter(m => m.round === newMaxR)
+    const finished = newRoundMatches.length === 1 && !!newRoundMatches[0].winner
+    if (finished) {
+      const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusPoints)
+      setCareer(prev => ({
+        ...prev,
+        tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
+        rivalBonusPoints: bonusMap,
+      }))
+    }
+
     setDrawMatches([...current])
   }
 
@@ -862,6 +885,34 @@ export function CareerHub({ player }: Props) {
               <div className="flex gap-1 mt-0.5">{catBadge(selectedT.category)}{surfaceBadge(selectedT.surface)}</div>
             </div>
           </div>
+
+          {autoSimulate === null && drawMatches.every(m => !m.isUser) && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+              <div className="text-sm font-semibold text-zinc-300">¿Cómo querés seguir este torneo?</div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAutoSimulate(true)
+                    const bestOf = CATEGORY_INFO[selectedT.category].bestOf
+                    const finished = simulateToChampion(drawMatches, selectedT.surface, bestOf)
+                    const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusPoints)
+                    setCareer(prev => ({
+                      ...prev,
+                      tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
+                      rivalBonusPoints: bonusMap,
+                    }))
+                    setDrawMatches(finished)
+                  }}
+                >
+                  ⚡ Simular todo
+                </Button>
+                <Button variant="outline" onClick={() => setAutoSimulate(false)}>
+                  📅 Ronda por ronda
+                </Button>
+              </div>
+            </div>
+          )}
 
           {matchResult && (
             <div className={`rounded-xl p-3 text-sm font-semibold border ${matchResult.startsWith("✅") ? "bg-green-900/30 border-green-700 text-green-300" : "bg-red-900/30 border-red-700 text-red-300"}`}>
