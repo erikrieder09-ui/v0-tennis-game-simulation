@@ -7,7 +7,7 @@ import type { Rival, Surface, Tour } from "./types"
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type TournamentCategory = "grand-slam" | "atp500" | "atp250" | "challenger125"
+export type TournamentCategory = "grand-slam" | "atp500" | "atp250" | "challenger125" | "atp-finals"
 
 export interface TournamentDef {
   id: string
@@ -259,6 +259,17 @@ export function buildDraw(
   userRival: Rival,
   entryStatus: EntryStatus,
 ): TournamentDraw {
+  
+  // ATP Finals -> formato especial Round Robin
+  if (t.category === "atp-finals") {
+    return buildATPFinalsDraw(
+      t,
+      allRivals,
+      userRival,
+      entryStatus
+    )
+  }
+  
   const rounds = getRounds(t.drawSize)
   const firstRound = rounds[0]
 
@@ -374,6 +385,55 @@ export function buildDraw(
     completed: false,
     userRound: userFirstRound,
     userEliminated: entryStatus === "ineligible",
+  }
+}
+
+function buildATPFinalsDraw(
+  t: TournamentDef,
+  allRivals: Rival[],
+  userRival: Rival,
+  entryStatus: EntryStatus,
+): TournamentDraw {
+
+  const rounds = ["Cuartos", "Semifinal", "Final"]
+
+  const players: Rival[] = [...allRivals]
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 8)
+
+  const userIndex = players.findIndex(p => p.id === "USER")
+  if (userIndex >= 0) {
+    players[userIndex] = userRival
+  }
+
+  const userQualified = players.some(p => p.id === "USER")
+
+  const matches: DrawMatch[] = []
+
+  for (let i = 0; i < 4; i++) {
+    matches.push({
+      id: `${t.id}-QF-${i}`,
+      round: "Cuartos",
+      position: i,
+      player1: players[i * 2] ?? null,
+      player2: players[i * 2 + 1] ?? null,
+      winner: null,
+      score: null,
+      isUserMatch:
+        players[i * 2]?.id === "USER" ||
+        players[i * 2 + 1]?.id === "USER",
+      status: "scheduled",
+    })
+  }
+
+  return {
+    tournamentId: t.id,
+    rounds,
+    matches,
+    qualifyingMatches: [],
+    completed: false,
+    userRound: userQualified ? "Cuartos" : null,
+    userEliminated: !userQualified,
   }
 }
 

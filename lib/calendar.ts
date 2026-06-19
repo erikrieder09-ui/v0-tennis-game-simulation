@@ -45,6 +45,7 @@ export interface Tournament {
   date: string
   /** entry fee for low-tier events that require self-funding */
   entryFee: number
+  season: number
 }
 
 /* -------------------------------------------------------------------------- */
@@ -239,34 +240,36 @@ export function getCalendar(): Tournament[] {
   if (_calendar) return _calendar
 
   const entries: Tournament[] = CALENDAR_SEED.map((s, i) => ({
-    id: `T${i}`,
-    name: s.name,
-    city: s.city,
-    country: s.country,
-    category: s.category,
-    surface: s.surface,
-    date: addWeeks(SEASON_START, s.wk),
-    entryFee: s.fee ?? 0,
-  }))
+  id: `T${i}`,
+  name: s.name,
+  city: s.city,
+  country: s.country,
+  category: s.category,
+  surface: s.surface,
+  date: addWeeks(SEASON_START, s.wk),
+  entryFee: s.fee ?? 0,
+  season: s.wk < CYCLE_START_WK ? 2026 : 2027,  // ← semanas 0-30 son 2026, 31+ son 2027
+}))
 
   // Repetimos el patrón anual (desde CYCLE_START_WK) para años futuros
   const cyclePattern = CALENDAR_SEED.filter(s => s.wk >= CYCLE_START_WK)
 
   for (let cycle = 1; cycle <= CYCLES_TO_GENERATE; cycle++) {
-    cyclePattern.forEach((s, i) => {
-      const wk = s.wk + cycle * CYCLE_LENGTH
-      entries.push({
-        id: `T-cycle${cycle}-${i}`,
-        name: s.name,
-        city: s.city,
-        country: s.country,
-        category: s.category,
-        surface: s.surface,
-        date: addWeeks(SEASON_START, wk),
-        entryFee: s.fee ?? 0,
-      })
+  cyclePattern.forEach((s, i) => {
+    const wk = s.wk + cycle * CYCLE_LENGTH
+    entries.push({
+      id: `T-cycle${cycle}-${i}`,
+      name: s.name,
+      city: s.city,
+      country: s.country,
+      category: s.category,
+      surface: s.surface,
+      date: addWeeks(SEASON_START, wk),
+      entryFee: s.fee ?? 0,
+      season: 2027 + cycle,  // ← 2028, 2029, 2030...
     })
-  }
+  })
+}
 
   _calendar = entries
   return _calendar
@@ -366,5 +369,20 @@ export function prizeForResult(category: Category, roundsTotal: number, roundsRe
   const winner = CATEGORY_INFO[category].winnerPrize
   const frac = Math.pow(0.58, roundsTotal - roundsReached)
   return Math.round(winner * frac)
+} 
 
+/** Devuelve true si entre dos torneos hay un cambio de temporada */
+export function isSeasonTransition(a: Tournament, b: Tournament): boolean {
+  return a.season !== b.season
 }
+
+/** Semanas de off-season entre el ATP Finals y el inicio de la nueva temporada */
+export function isOffSeason(date: string): boolean {
+  const cal = getCalendar()
+  const prev = cal.filter(t => t.date <= date).at(-1)
+  const next = cal.find(t => t.date > date)
+  if (!prev || !next) return false
+  return prev.season !== next.season
+}
+
+
