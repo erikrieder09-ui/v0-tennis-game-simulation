@@ -108,14 +108,37 @@ function buildDraw(
 
   let rankWindow: [number, number]
   switch (t.category) {
-    case "grand-slam":     rankWindow = [1, 128]; break
-    case "masters-1000":   rankWindow = [1, 75]; break
-    case "atp-500":        rankWindow = [1, 60]; break
-    case "atp-250":        rankWindow = [15, 110]; break
-    case "challenger":     rankWindow = [80, 249]; break
-    case "futures":        rankWindow = [150, 249]; break
-    default:               rankWindow = [1, 200]
-  }
+  case "grand-slam":
+    rankWindow = [1, 128]
+    break
+
+  case "masters-1000":
+    rankWindow = [1, 75]
+    break
+
+  case "atp-500":
+    rankWindow = [1, 60]
+    break
+
+  case "atp-250":
+    rankWindow = [15, 110]
+    break
+
+  case "challenger":
+    rankWindow = [80, 249]
+    break
+
+  case "futures":
+    rankWindow = [150, 249]
+    break
+
+  case "atp-finals":
+    rankWindow = [1, 8]
+    break
+
+  default:
+    rankWindow = [1, 200]
+}
 
   const slotsNeeded = (overrideDrawSize ?? CATEGORY_INFO[t.category].drawSize) - (isDirect ? 1 : 0)
   const availableInWindow = rivals.filter(
