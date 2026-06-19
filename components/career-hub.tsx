@@ -838,23 +838,32 @@ export function CareerHub({ player }: Props) {
         <div className="space-y-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <div className="text-sm font-bold text-zinc-400 mb-3">PRÓXIMOS TORNEOS</div>
-            {upcoming.slice(0, 4).map(t => {
+            {upcoming.slice(0, 4).map((t, i) => {
+              const prev = upcoming[i - 1]
+              const showTransition = prev && t.season !== prev.season
               const status = entryStatus(t.category, playerRank)
               return (
-                <div key={t.id} className="flex items-center gap-3 py-2 border-b border-zinc-800 last:border-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{t.name}</div>
-                    <div className="flex gap-1 mt-0.5 flex-wrap">
-                      {catBadge(t.category)}
-                      {surfaceBadge(t.surface)}
+                <div key={t.id}>
+                  {showTransition && (
+                    <div className="text-center text-yellow-400 font-bold py-3 border-y border-yellow-500/30 my-1 text-sm">
+                      🏆 Fin de temporada {prev.season} — Inicio de temporada {t.season}
                     </div>
-                  </div>
-                  <div className="text-xs text-zinc-500 shrink-0">{t.date}</div>
-                  {status.kind !== "ineligible" ? (
-                    <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
                   )}
+                  <div className="flex items-center gap-3 py-2 border-b border-zinc-800 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{t.name}</div>
+                      <div className="flex gap-1 mt-0.5 flex-wrap">
+                        {catBadge(t.category)}
+                        {surfaceBadge(t.surface)}
+                      </div>
+                    </div>
+                    <div className="text-xs text-zinc-500 shrink-0">{t.date}</div>
+                    {status.kind !== "ineligible" ? (
+                      <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -867,37 +876,45 @@ export function CareerHub({ player }: Props) {
           ))}
         </div>
       )}
-
       {/* CALENDAR */}
       {view === "calendar" && (
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">CALENDARIO DE TEMPORADA</div>
-          {upcoming.map(t => {
-            const status = entryStatus(t.category, playerRank)
-            const info = CATEGORY_INFO[t.category]
-            return (
-              <div key={t.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold">{t.name}</div>
-                  <div className="text-xs text-zinc-500">{t.city}, {t.country} · {t.date}</div>
-                  <div className="flex gap-1 mt-1 flex-wrap">
-                    {catBadge(t.category)}
-                    {surfaceBadge(t.surface)}
-                    <span className="text-[10px] text-zinc-500 px-1">🏆 {info.winnerPoints} pts</span>
-                    <span className="text-[10px] text-zinc-500 px-1">💰 {formatMoney(info.winnerPrize)}</span>
-                  </div>
-                  <div className="text-xs mt-1 text-zinc-400">{status.label}</div>
-                </div>
-                {status.kind !== "ineligible" ? (
-                  <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
-                )}
-              </div>
-            )
-          })}
+          {upcoming.map((t, i) => {
+  const prev = upcoming[i - 1]
+  const showTransition = prev && t.season !== prev.season
+  const status = entryStatus(t.category, playerRank)
+  const info = CATEGORY_INFO[t.category]
+  return (
+    <div key={t.id}>
+      {showTransition && (
+        <div className="text-center text-yellow-400 font-bold py-4 border-y border-yellow-500/30 my-2">
+          🏆 Fin de temporada {prev.season} — Inicio de temporada {t.season}
         </div>
       )}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold">{t.name}</div>
+          <div className="text-xs text-zinc-500">{t.city}, {t.country} · {t.date}</div>
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {catBadge(t.category)}
+            {surfaceBadge(t.surface)}
+            <span className="text-[10px] text-zinc-500 px-1">🏆 {info.winnerPoints} pts</span>
+            <span className="text-[10px] text-zinc-500 px-1">💰 {formatMoney(info.winnerPrize)}</span>
+          </div>
+          <div className="text-xs mt-1 text-zinc-400">{status.label}</div>
+        </div>
+        {status.kind !== "ineligible" ? (
+          <Button size="sm" onClick={() => enterTournament(t)}>Entrar</Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => enterTournament(t)}>👁 Ver</Button>
+        )}
+      </div>
+    </div>
+  )
+})}
+</div>   
+      )}     
 
       {/* DRAW */}
       {view === "draw" && selectedT && (
@@ -1028,3 +1045,5 @@ export function CareerHub({ player }: Props) {
     </div>
   )
 }
+
+  
