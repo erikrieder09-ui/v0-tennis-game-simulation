@@ -826,22 +826,22 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
   function handleUpgradeAttribute(key: VisibleKey) {
     const available = availableAttributePoints(career.level, career.spentAttributePoints)
     const result = upgradeAttribute(
-      player.attributes,
+      career.player.attributes,
       key,
       available,
-      player.playStyle,
-      player.height,
-      player.weight,
-      player.tour,
+      career.player.playStyle,
+      career.player.height,
+      career.player.weight,
+      career.player.tour,
       career.capBreakers
     )
     if (!result.success) {
       setCareer(prev => ({ ...prev, log: [...prev.log, `⚠️ ${result.reason}`] }))
       return
     }
-    player.attributes = result.newAttrs
     setCareer(prev => ({
       ...prev,
+      player: { ...prev.player, attributes: result.newAttrs },
       spentAttributePoints: prev.spentAttributePoints + result.pointsSpent,
     }))
   }
