@@ -717,7 +717,8 @@ export function CareerHub({ player }: Props) {
       ? computeTournamentPointsBonus(finalMatches, selectedT.category, career.rivalBonusHistory, career.date)
       : null
 
-    const newPoints = career.points + ptsEarned
+    const newPointsHistory = addPointsEntry(career.pointsHistory, ptsEarned, career.date, selectedT.name)
+    const newPoints = recomputePoints(newPointsHistory, career.date)
     const newMoney = career.money + prizeEarned - (selectedT.entryFee ?? 0)
     const resultMsg = userWon
       ? `✅ Victoria en ${selectedT.name}: +${ptsEarned} pts, +${formatMoney(prizeEarned)}`
@@ -730,6 +731,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     setCareer(prev => ({
       ...prev,
       points: newPoints,
+      pointsHistory: newPointsHistory,
       money: newMoney,
       level: newLevel,
       xp: newXp,
@@ -799,12 +801,16 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
   }
 
   function advanceWeek() {
-    setCareer(prev => ({
-      ...prev,
-      date: addWeeks(prev.date, 1),
-      fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
-      trainingUsedThisWeek: false,
-    } as any))
+    setCareer(prev => {
+      const advanced: CareerState = {
+        ...prev,
+        date: addWeeks(prev.date, 1),
+        fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+      }
+      // También recalculamos los puntos por si algo salió de la ventana de 52 semanas
+      const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
+      return checkAnnualProgression({ ...advanced, points: recalculated })
+    })
   }
 
   function buyEnergyBottle() {
