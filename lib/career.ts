@@ -95,7 +95,11 @@ export interface CareerState {
   spentAttributePoints: number
   /** bonus de tope por atributo, ganado al ganar M1000/GS/Finals */
   capBreakers: Partial<Record<import("./progression").VisibleKey, number>>
+
+  /** última fecha en que se aplicó progresión anual (para no duplicar ni saltear) */
+  lastProgressionDate: string
 }
+
  
 const SEASON_START = "2026-06-08" // Monday, start of the grass swing
  
@@ -144,6 +148,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     xp: 0,
     spentAttributePoints: -5, // negativo = puntos de regalo extra sumados a los del nivel
     capBreakers: {},
+    lastProgressionDate: SEASON_START,
   }
 }
  
