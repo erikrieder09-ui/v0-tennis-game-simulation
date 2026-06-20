@@ -28,7 +28,7 @@ export const CATEGORY_INFO: Record<Category, CategoryInfo> = {
   "grand-slam": { label: "Grand Slam", winnerPoints: 2000, winnerPrize: 2800000, drawSize: 128, bestOf: 5, hasQualy: true, directEntryRank: 104, qualyEntryRank: 250 },
   "masters-1000": { label: "Masters 1000", winnerPoints: 1000, winnerPrize: 1100000, drawSize: 64, bestOf: 3, hasQualy: true, directEntryRank: 60, qualyEntryRank: 250 },
   "atp-500": { label: "ATP/WTA 500", winnerPoints: 500, winnerPrize: 520000, drawSize: 32, bestOf: 3, hasQualy: true, directEntryRank: 50, qualyEntryRank: 180 },
-  "atp-250": { label: "ATP/WTA 250", winnerPoints: 250, winnerPrize: 110000, drawSize: 28, bestOf: 3, hasQualy: true, directEntryRank: 80, qualyEntryRank: 250 },
+  "atp-250": { label: "ATP/WTA 250", winnerPoints: 250, winnerPrize: 110000, drawSize: 32, bestOf: 3, hasQualy: true, directEntryRank: 80, qualyEntryRank: 250 },
   challenger: { label: "Challenger", winnerPoints: 100, winnerPrize: 22000, drawSize: 32, bestOf: 3, hasQualy: true, directEntryRank: 230, qualyEntryRank: 700 },
   futures: { label: "Futures (ITF)", winnerPoints: 35, winnerPrize: 4000, drawSize: 32, bestOf: 3, hasQualy: false, directEntryRank: 1500, qualyEntryRank: 2000 },
   "atp-finals": { label: "ATP Finals", winnerPoints: 1500, winnerPrize: 4800000, hasQualy: false, directEntryRank: 8, qualyEntryRank: 0, drawSize: 8, bestOf: 3},

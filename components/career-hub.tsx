@@ -3,7 +3,11 @@
 import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { createCareer, buildLiveRanking, getPlayerRank, addWeeks, formatDate, formatMoney, type CareerState } from "@/lib/career"
+import {
+  createCareer, buildLiveRanking, getPlayerRank, addWeeks, formatDate, formatMoney,
+  addPointsEntry, recomputePoints, checkAnnualProgression,
+  type CareerState, type PointsEntry,
+} from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, type Tournament } from "@/lib/calendar"
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
@@ -79,26 +83,23 @@ interface DrawMatch {
 function computeTournamentPointsBonus(
   matches: DrawMatch[],
   category: Tournament["category"],
-  existingBonus: Record<string, number>
-): Record<string, number> {
+  existingHistory: Record<string, PointsEntry[]>,
+  currentDate: string
+): Record<string, PointsEntry[]> {
   const winnerPoints = CATEGORY_INFO[category].winnerPoints
   const maxRound = Math.max(...matches.map(m => m.round))
-  const updated = { ...existingBonus }
+  const updated = { ...existingHistory }
 
-  // Para cada partido, el perdedor recibe puntos según la ronda en que cayó.
-  // El campeón (ganador de la última ronda) recibe el máximo.
   matches.forEach(m => {
     if (!m.winner) return
     const loser = m.winner.id === m.p1?.id ? m.p2 : m.p1
     if (loser && loser.id !== "USER") {
-      // Puntos por llegar hasta esta ronda (proporcional, ronda 0 = primera ronda)
       const roundFraction = (m.round + 1) / (maxRound + 2)
       const pts = Math.round(winnerPoints * roundFraction * 0.5)
-      updated[loser.id] = (updated[loser.id] ?? 0) + pts
+      updated[loser.id] = addPointsEntry(updated[loser.id] ?? [], pts, currentDate, category)
     }
-    // Si es la última ronda, el ganador es el campeón
     if (m.round === maxRound && m.winner.id !== "USER") {
-      updated[m.winner.id] = (updated[m.winner.id] ?? 0) + winnerPoints
+      updated[m.winner.id] = addPointsEntry(updated[m.winner.id] ?? [], winnerPoints, currentDate, category)
     }
   })
 
@@ -569,18 +570,18 @@ export function CareerHub({ player }: Props) {
   }
 
     if (status.kind === "ineligible") {
-  const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
+  const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
   const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
   let matches = buildDraw(t, rivsForDraw, userRival, false)
   matches = simNonUserMatches(matches, t.surface, bestOf)
 
   if (autoSimulate === true) {
     matches = simulateToChampion(matches, t.surface, bestOf)
-    const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusPoints)
+    const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusHistory, career.date)
     setCareer(prev => ({
       ...prev,
       tournamentResults: { ...prev.tournamentResults, [t.id]: matches },
-      rivalBonusPoints: bonusMap,
+      rivalBonusHistory: bonusMap,
     }))
   }
 
@@ -596,7 +597,7 @@ export function CareerHub({ player }: Props) {
     setPlayedTournaments(prev => new Set(prev).add(t.id))
     setQualyCompleted(false)
 
-    const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
+    const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
     const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
 
     let matches: DrawMatch[] = []
@@ -673,7 +674,7 @@ export function CareerHub({ player }: Props) {
         const qualyRounds = Math.log2(16) - 1
         if (currentRound >= qualyRounds - 1) {
           justClassified = true
-          const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
+          const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
           const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
           let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, true)
           mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
@@ -683,7 +684,7 @@ export function CareerHub({ player }: Props) {
     } else {
       if (playingQualy) {
         // Perdió en qualy: generar el cuadro principal completo sin el usuario
-        const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints)
+        const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
         const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
         let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, false)
         mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
@@ -712,8 +713,8 @@ export function CareerHub({ player }: Props) {
     const lastRoundMatches = finalMatches.filter(m => m.round === maxRFinal)
     const tournamentFinished = lastRoundMatches.length === 1 && !!lastRoundMatches[0].winner
 
-    const bonusUpdate: Record<string, number> | null = tournamentFinished
-      ? computeTournamentPointsBonus(finalMatches, selectedT.category, career.rivalBonusPoints)
+    const bonusUpdate: Record<string, PointsEntry[]> | null = tournamentFinished
+      ? computeTournamentPointsBonus(finalMatches, selectedT.category, career.rivalBonusHistory, career.date)
       : null
 
     const newPoints = career.points + ptsEarned
@@ -741,7 +742,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       tournamentResults: tournamentFinished
         ? { ...prev.tournamentResults, [selectedT.id]: finalMatches }
         : prev.tournamentResults,
-      rivalBonusPoints: bonusUpdate ?? prev.rivalBonusPoints,
+      rivalBonusHistory: bonusUpdate ?? prev.rivalBonusHistory,
       history: [...prev.history, {
         id: `${selectedT.id}-${Date.now()}`,
         date: career.date,
@@ -786,11 +787,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     const newRoundMatches = current.filter(m => m.round === newMaxR)
     const finished = newRoundMatches.length === 1 && !!newRoundMatches[0].winner
     if (finished) {
-      const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusPoints)
+      const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
       setCareer(prev => ({
         ...prev,
         tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
-        rivalBonusPoints: bonusMap,
+        rivalBonusHistory: bonusMap,
       }))
     }
 
@@ -1017,11 +1018,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
                     setAutoSimulate(true)
                     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
                     const finished = simulateToChampion(drawMatches, selectedT.surface, bestOf)
-                    const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusPoints)
+                    const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusHistory, career.date)
                     setCareer(prev => ({
                       ...prev,
                       tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
-                      rivalBonusPoints: bonusMap,
+                      rivalBonusHistory: bonusMap,
                     }))
                     setDrawMatches(finished)
                   }}
@@ -1171,7 +1172,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       {view === "ranking" && (
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
-          {buildLiveRanking(player.tour, career.points, player, career.rivalBonusPoints).slice(0, 249).map(r => (
+          {buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date).slice(0, 249).map(r => (
             <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
               ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
               <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
