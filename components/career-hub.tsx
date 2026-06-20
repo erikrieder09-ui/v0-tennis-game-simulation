@@ -8,7 +8,12 @@ import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prize
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
-import { applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy, BOTTLE_COST } from "@/lib/progression"
+import {
+  applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy, BOTTLE_COST,
+  VISIBLE_KEYS, VisibleKey, xpForNextLevel, attributeUpgradeCost,
+  availableAttributePoints, upgradeAttribute,
+} from "@/lib/progression"
+import { computeAttributeCap } from "@/lib/attributes"
 
 
 /* -------------------------------------------------------------------------- */
@@ -503,7 +508,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking"
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training"
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => createCareer(player))
@@ -808,6 +813,48 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       log: [...prev.log, `💊 Compraste una botella energizante (+${ENERGY_DELTA.bottle} energía)`],
     }))
   }
+
+  function handleUpgradeAttribute(key: VisibleKey) {
+    const available = availableAttributePoints(career.level, career.spentAttributePoints)
+    const result = upgradeAttribute(
+      player.attributes,
+      key,
+      available,
+      player.playStyle,
+      player.height,
+      player.weight,
+      player.tour,
+      career.capBreakers
+    )
+    if (!result.success) {
+      setCareer(prev => ({ ...prev, log: [...prev.log, `⚠️ ${result.reason}`] }))
+      return
+    }
+    player.attributes = result.newAttrs
+    setCareer(prev => ({
+      ...prev,
+      spentAttributePoints: prev.spentAttributePoints + result.pointsSpent,
+    }))
+  }
+
+  function handleTrain() {
+    if (career.fitness < 25) {
+      setCareer(prev => ({ ...prev, log: [...prev.log, "⚠️ No tenés suficiente energía para entrenar"] }))
+      return
+    }
+    const { level: newLevel, xp: newXp, levelsGained } = applyXP(career.level, career.xp, XP_REWARDS.training)
+    const newFitness = applyEnergy(career.fitness, ENERGY_DELTA.training)
+    setCareer(prev => ({
+      ...prev,
+      level: newLevel,
+      xp: newXp,
+      fitness: newFitness,
+      log: levelsGained > 0
+        ? [...prev.log, `💪 Sesión de entrenamiento completada`, `🎉 ¡Subiste a nivel ${newLevel}!`]
+        : [...prev.log, `💪 Sesión de entrenamiento completada`],
+    }))
+  }
+  
   /* ---- RENDER ---- */
 
   return (
