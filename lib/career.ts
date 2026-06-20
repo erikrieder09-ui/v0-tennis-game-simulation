@@ -32,7 +32,7 @@ export interface CareerState {
   mentalityXp: number
   /** how many times mental training has been done (diminishing returns) */
   mentalTrainings: number
-  /** fitness 0-100; drops with matches, recovers with rest */
+  /** fitness 0-100; drops with matches and training, recovers with rest or bottles */
   fitness: number
   /** injury weeks remaining (0 = healthy) */
   injuryWeeksLeft: number
@@ -43,10 +43,17 @@ export interface CareerState {
   history: MatchRecord[]
   log: string[]
   busyPlayers: string[]
-/** resultado final guardado por torneo, para que no se regenere cada vez que se entra */
+  /** resultado final guardado por torneo, para que no se regenere cada vez que se entra */
   tournamentResults: Record<string, any>
   /** puntos extra acumulados por rivales que ganaron torneos (rivalId -> puntos extra) */
   rivalBonusPoints: Record<string, number>
+  /** sistema de progresión: nivel y XP del jugador */
+  level: number
+  xp: number
+  /** puntos de atributo ya gastados (para calcular los disponibles: ver availableAttributePoints) */
+  spentAttributePoints: number
+  /** bonus de tope por atributo, ganado al ganar M1000/GS/Finals */
+  capBreakers: Partial<Record<import("./progression").VisibleKey, number>>
 }
 
 
@@ -86,6 +93,10 @@ export function createCareer(player: PlayerProfile): CareerState {
   busyPlayers: [],
   tournamentResults: {},
   rivalBonusPoints: {},
+  level: 1,
+  xp: 0,
+  spentAttributePoints: -5, // regalo inicial de 5 puntos (ver availableAttributePoints)
+  capBreakers: {},
 }
 }
 /* -------------------------------------------------------------------------- */
@@ -228,7 +239,7 @@ function progressionRate(age: number): number {
   return -2.0                  // declive marcado +37
 }
 const PHYSICAL_ATTRS: (keyof AttributeSet)[] = ["speed", "stamina", "power"]
-const TECHNICAL_ATTRS: (keyof AttributeSet)[] = ["serve", "forehand", "backhand", "volley"]
+const TECHNICAL_ATTRS: (keyof AttributeSet)[] = ["serve", "drive", "backhand", "volley"]
 
 /**
  * Atributos físicos que decaen antes con la edad.
