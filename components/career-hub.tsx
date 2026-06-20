@@ -8,6 +8,7 @@ import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prize
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
+import { applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy } from "@/lib/progression"
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -713,13 +714,22 @@ export function CareerHub({ player }: Props) {
       ? `✅ Victoria en ${selectedT.name}: +${ptsEarned} pts, +${formatMoney(prizeEarned)}`
       : `❌ Eliminado en ${selectedT.name}: +${ptsEarned} pts, +${formatMoney(prizeEarned)}`
 
+const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
+    const { level: newLevel, xp: newXp, levelsGained } = applyXP(career.level, career.xp, xpGained)
+    const newFitness = applyEnergy(career.fitness, ENERGY_DELTA.match)
+
     setCareer(prev => ({
       ...prev,
       points: newPoints,
       money: newMoney,
+      level: newLevel,
+      xp: newXp,
+      fitness: newFitness,
       matchesWon: prev.matchesWon + (userWon ? 1 : 0),
       matchesLost: prev.matchesLost + (userWon ? 0 : 1),
-      log: [...prev.log, resultMsg],
+      log: levelsGained > 0
+        ? [...prev.log, resultMsg, `🎉 ¡Subiste a nivel ${newLevel}!`]
+        : [...prev.log, resultMsg],
       tournamentResults: tournamentFinished
         ? { ...prev.tournamentResults, [selectedT.id]: finalMatches }
         : prev.tournamentResults,
