@@ -376,14 +376,13 @@ export function applyAnnualProgression(career: CareerState): {
 }
  
 export function checkAnnualProgression(career: CareerState): CareerState {
-  const start = new Date(SEASON_START)
-  const current = new Date(career.date)
-  const weeksElapsed = Math.round(
-    (current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)
+  const weeksSinceLastProgression = Math.round(
+    (new Date(career.date).getTime() - new Date(career.lastProgressionDate).getTime())
+    / (7 * 24 * 60 * 60 * 1000)
   )
-  if (weeksElapsed > 0 && weeksElapsed % 52 === 0) {
+  if (weeksSinceLastProgression >= 52) {
     const { career: updated } = applyAnnualProgression(career)
-    return updated
+    return { ...updated, lastProgressionDate: career.date }
   }
   return career
 }
