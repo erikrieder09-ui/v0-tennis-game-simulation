@@ -8,7 +8,8 @@ import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prize
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
-import { applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy } from "@/lib/progression"
+import { applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy, BOTTLE_COST } from "@/lib/progression"
+
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -793,10 +794,20 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     setCareer(prev => ({
       ...prev,
       date: addWeeks(prev.date, 1),
+      fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
       trainingUsedThisWeek: false,
     } as any))
   }
 
+  function buyEnergyBottle() {
+    if (career.money < BOTTLE_COST) return
+    setCareer(prev => ({
+      ...prev,
+      money: prev.money - BOTTLE_COST,
+      fitness: applyEnergy(prev.fitness, ENERGY_DELTA.bottle),
+      log: [...prev.log, `💊 Compraste una botella energizante (+${ENERGY_DELTA.bottle} energía)`],
+    }))
+  }
   /* ---- RENDER ---- */
 
   return (
