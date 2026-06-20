@@ -193,9 +193,15 @@ export function buildLiveRanking(
   }
   // Exclude the deepest rival so the field size stays constant after insertion.
   const withBonus = base.slice(0, base.length - 1).map(r => {
-    const entries = rivalBonusHistory[r.id]
-    const bonus = entries ? recomputePoints(entries, currentDate) : 0
-    return bonus > 0 ? { ...r, points: r.points + bonus } : r
+    // El historial real de cada rival incluye su valor base inicial (que también vence
+    // a las 52 semanas, igual que cualquier otro torneo) más los torneos que ganó/jugó.
+    const ownedHistory = rivalBonusHistory[r.id] ?? []
+    const fullHistory: PointsEntry[] = [
+      { id: `${r.id}-base`, points: r.points, date: SEASON_START, label: "Ranking inicial" },
+      ...ownedHistory,
+    ]
+    const points = recomputePoints(fullHistory, currentDate)
+    return { ...r, points }
   })
   const merged = [...withBonus, userRow].sort(
     (a, b) => b.points - a.points || b.overall - a.overall,
