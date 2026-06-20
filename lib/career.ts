@@ -95,7 +95,7 @@ export function createCareer(player: PlayerProfile): CareerState {
   rivalBonusPoints: {},
   level: 1,
   xp: 0,
-  spentAttributePoints: -5, // regalo inicial de 5 puntos (ver availableAttributePoints)
+  spentAttributePoints: -5, // negativo = puntos de regalo extra sumados a los del nivel
   capBreakers: {},
 }
 }
