@@ -8,12 +8,14 @@ import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prize
 import { getRankings } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
+import { ATTRIBUTE_LABELS } from "@/lib/types"
 import {
   applyXP, XP_REWARDS, ENERGY_DELTA, applyEnergy, BOTTLE_COST,
   VISIBLE_KEYS, VisibleKey, xpForNextLevel, attributeUpgradeCost,
   availableAttributePoints, upgradeAttribute,
 } from "@/lib/progression"
-import { computeAttributeCap } from "@/lib/attributes"
+import { computeAttributeCap, computeOverall } from "@/lib/attributes"
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -854,7 +856,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
         : [...prev.log, `💪 Sesión de entrenamiento completada`],
     }))
   }
-  
+
   /* ---- RENDER ---- */
 
   return (
@@ -866,6 +868,14 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           <div className="text-sm text-zinc-400">{formatDate(career.date)} · Circuito {player.tour}</div>
         </div>
         <div className="flex gap-4 text-center">
+          <div>
+            <div className="text-xl font-bold text-blue-300">{computeOverall(player.attributes, player.playStyle)}</div>
+            <div className="text-xs text-zinc-500">OVR</div>
+          </div>
+          <div>
+            <div className="text-xl font-bold">{player.age}</div>
+            <div className="text-xs text-zinc-500">Edad</div>
+          </div>
           <div>
             <div className="text-xl font-bold text-yellow-300">#{playerRank}</div>
             <div className="text-xs text-zinc-500">Ranking</div>
@@ -897,6 +907,9 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           )}
           <Button size="sm" variant={view === "ranking" ? "default" : "outline"} onClick={() => setView("ranking")}>
             📊 Ranking
+          </Button>
+          <Button size="sm" variant={view === "training" ? "default" : "outline"} onClick={() => setView("training")}>
+            🏋️ Entrenamiento
           </Button>
         </div>
       )}
@@ -1067,6 +1080,92 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
         </div>
       )}
+
+      {/* TRAINING */}
+      {view === "training" && (
+        <div className="space-y-4">
+          {/* Nivel y XP */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-bold text-zinc-400">NIVEL {career.level}</div>
+              <div className="text-xs text-zinc-500">{career.xp} / {xpForNextLevel(career.level)} XP</div>
+            </div>
+            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-yellow-500"
+                style={{ width: `${Math.min(100, (career.xp / xpForNextLevel(career.level)) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Energía */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-bold text-zinc-400">ENERGÍA</div>
+              <div className="text-xs text-zinc-500">{career.fitness} / 100</div>
+            </div>
+            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden mb-3">
+              <div
+                className={`h-full ${career.fitness > 50 ? "bg-green-500" : career.fitness > 25 ? "bg-yellow-500" : "bg-red-500"}`}
+                style={{ width: `${career.fitness}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={handleTrain} disabled={career.fitness < 25}>
+                💪 Entrenar (-25 energía, +{XP_REWARDS.training} XP)
+              </Button>
+              <Button variant="outline" onClick={buyEnergyBottle} disabled={career.money < BOTTLE_COST}>
+                🧃 Botella ({formatMoney(BOTTLE_COST)})
+              </Button>
+            </div>
+          </div>
+
+          {/* Atributos */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-bold text-zinc-400">ATRIBUTOS</div>
+              <div className="text-xs font-bold text-yellow-300">
+                {availableAttributePoints(career.level, career.spentAttributePoints)} puntos disponibles
+              </div>
+            </div>
+            <div className="space-y-3">
+              {VISIBLE_KEYS.map(key => {
+                const label = ATTRIBUTE_LABELS.find(a => a.key === key)?.label ?? key
+                const current = player.attributes[key] ?? 0
+                const cap = computeAttributeCap(key, player.playStyle, player.height, player.weight, player.tour, career.capBreakers)
+                const cost = attributeUpgradeCost(current)
+                const available = availableAttributePoints(career.level, career.spentAttributePoints)
+                const atCap = current >= cap
+                const canAfford = available >= cost && !atCap
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <div className="w-24 text-xs text-zinc-300 shrink-0">{label}</div>
+                    <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${atCap ? "bg-yellow-500" : "bg-blue-500"}`}
+                        style={{ width: `${Math.min(100, (current / cap) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="w-16 text-right font-mono text-xs text-zinc-400 shrink-0">
+                      {current} <span className="text-zinc-600">/ {cap}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 w-20"
+                      onClick={() => handleUpgradeAttribute(key)}
+                      disabled={!canAfford}
+                    >
+                      {atCap ? "MAX" : `+1 (${cost})`}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* RANKING */}
       {view === "ranking" && (

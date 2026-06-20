@@ -79,14 +79,14 @@ const ATP_SEEDS: Seed[] = [
   { first: "Tommy", last: "Paul", nat: "USA", age: 29, hand: "right", backhand: "two", height: 185, weight: 82, style: "all-around", favSurface: "hard", ovr: 82, injury: 25, currentAbility: 82, potentialAbility: 85 },
   { first: "Stan", last: "Wawrinka", nat: "SWI", age: 40, hand: "right", backhand: "one", height: 183, weight: 81, style: "aggressive-baseline", favSurface: "clay", ovr: 78, injury: 30, currentAbility: 78, potentialAbility: 78 },
   { first: "Gael", last: "Monfils", nat: "Fra", age: 39, hand: "right", backhand: "two", height: 193, weight: 85, style: "all-around", favSurface: "hard", ovr: 76, injury: 30, currentAbility: 76, potentialAbility: 76 },
-  { first: "Henrik", last: "Rydén", nat: "SWE", age: 21, hand: "left", backhand: "one", height: 187, weight: 80, style: "all-around", favSurface: "hard", ovr: 68, injury: 18, currentAbility: 68, potentialAbility: 94 },
-  { first: "Luka", last: "Rinovic", nat: "CRO", age: 22, hand: "right", backhand: "two", height: 211, weight: 101, style: "serve-volley", favSurface: "grass", ovr: 66, injury: 30, currentAbility: 66, potentialAbility: 90 },
-  { first: "Feliciano", last: "Tolosa", nat: "COL", age: 21, hand: "right", backhand: "two", height: 175, weight: 72, style: "defensive-baseline", favSurface: "clay", ovr: 65, injury: 18, currentAbility: 65, potentialAbility: 90 },
-  { first: "Romain", last: "Lordian", nat: "FRA", age: 22, hand: "right", backhand: "two", height: 179, weight: 73, style: "defensive-baseline", favSurface: "hard", ovr: 66, injury: 20, currentAbility: 66, potentialAbility: 90 },
-  { first: "Gustav", last: "Rydén", nat: "SWE", age: 23, hand: "right", backhand: "one", height: 186, weight: 79, style: "aggressive-baseline", favSurface: "hard", ovr: 65, injury: 22, currentAbility: 65, potentialAbility: 92 },
-  { first: "Francis", last: "Botter", nat: "CAN", age: 24, hand: "right", backhand: "two", height: 185, weight: 82, style: "aggressive-baseline", favSurface: "hard", ovr: 64, injury: 24, currentAbility: 64, potentialAbility: 90 },
-  { first: "Maksim", last: "Yianetskiy", nat: "RUS", age: 20, hand: "left", backhand: "two", height: 182, weight: 77, style: "defensive-baseline", favSurface: "clay", ovr: 66, injury: 18, currentAbility: 66, potentialAbility: 90 },
-  { first: "Tiagu", last: "Gumu", nat: "MLT", age: 23, hand: "right", backhand: "two", height: 191, weight: 88, style: "serve-volley", favSurface: "hard", ovr: 65, injury: 20, currentAbility: 65, potentialAbility: 90 },
+  { first: "Henrik", last: "Rydén", nat: "SWE", age: 21, hand: "left", backhand: "one", height: 187, weight: 80, style: "all-around", favSurface: "hard", ovr: 69, injury: 18, currentAbility: 69, potentialAbility: 94 },
+  { first: "Luka", last: "Rinovic", nat: "CRO", age: 22, hand: "right", backhand: "two", height: 211, weight: 101, style: "serve-volley", favSurface: "grass", ovr: 68, injury: 30, currentAbility: 68, potentialAbility: 90 },
+  { first: "Feliciano", last: "Tolosa", nat: "COL", age: 21, hand: "right", backhand: "two", height: 175, weight: 72, style: "defensive-baseline", favSurface: "clay", ovr: 68, injury: 18, currentAbility: 68, potentialAbility: 90 },
+  { first: "Romain", last: "Lordian", nat: "FRA", age: 22, hand: "right", backhand: "two", height: 179, weight: 73, style: "defensive-baseline", favSurface: "hard", ovr: 68, injury: 20, currentAbility: 68, potentialAbility: 90 },
+  { first: "Gustav", last: "Rydén", nat: "SWE", age: 23, hand: "right", backhand: "one", height: 186, weight: 79, style: "aggressive-baseline", favSurface: "hard", ovr: 68, injury: 22, currentAbility: 68, potentialAbility: 92 },
+  { first: "Francis", last: "Botter", nat: "CAN", age: 24, hand: "right", backhand: "two", height: 185, weight: 82, style: "aggressive-baseline", favSurface: "hard", ovr: 68, injury: 24, currentAbility: 68, potentialAbility: 90 },
+  { first: "Maksim", last: "Yianetskiy", nat: "RUS", age: 20, hand: "left", backhand: "two", height: 182, weight: 77, style: "defensive-baseline", favSurface: "clay", ovr: 68, injury: 18, currentAbility: 68, potentialAbility: 90 },
+  { first: "Tiagu", last: "Gumu", nat: "MLT", age: 23, hand: "right", backhand: "two", height: 191, weight: 88, style: "serve-volley", favSurface: "hard", ovr: 68, injury: 20, currentAbility: 68, potentialAbility: 90 },
   { first: "Lemuph", last: "Le mer", nat: "FRA", age: 16, hand: "right", backhand: "two", height: 196, weight: 84, style: "aggressive-baseline", favSurface: "grass", ovr: 70, injury: 15, currentAbility: 70, potentialAbility: 98 },
 ]
 
@@ -158,21 +158,24 @@ const STYLES: PlayStyle[] = ["aggressive-baseline", "defensive-baseline", "serve
 /* -------------------------------------------------------------------------- */
 
 function attrsFromOverall(ovr: number, style: PlayStyle, rand: () => number): AttributeSet {
-  // Strengths/weaknesses biases by style (added/subtracted from the base ovr).
   const bias: Record<PlayStyle, Partial<Record<keyof AttributeSet, number>>> = {
-    "aggressive-baseline": { serve: 4, forehand: 7, power: 7, backhand: 3, volley: -8, speed: -1, stamina: -3 },
-    "defensive-baseline": { speed: 8, stamina: 8, backhand: 4, mentality: 3, serve: -6, power: -7, volley: -6 },
-    "serve-volley": { serve: 9, volley: 9, power: 4, speed: 1, backhand: -7, stamina: -4 },
-    "all-around": { serve: 1, forehand: 1, backhand: 1, volley: 1, speed: 1, stamina: 1, power: 1 },
+    "aggressive-baseline": { serve: 4, drive: 7, power: 7, backhand: 3, volley: -8, speed: -1, stamina: -3, return: 2, defense: -3 },
+    "defensive-baseline":  { speed: 8, stamina: 8, backhand: 4, mentality: 3, serve: -6, power: -7, volley: -6, return: 6, defense: 8 },
+    "serve-volley":        { serve: 9, volley: 9, power: 4, speed: 1, backhand: -7, stamina: -4, return: -5, defense: -4 },
+    "all-around":          { serve: 1, drive: 1, backhand: 1, volley: 1, speed: 1, stamina: 1, power: 1, return: 1, defense: 1 },
   }
   const b = bias[style]
-  const keys: (keyof AttributeSet)[] = ["serve", "forehand", "backhand", "volley", "speed", "stamina", "power", "mentality"]
+  const keys: (keyof AttributeSet)[] = ["serve", "drive", "backhand", "volley", "return", "defense", "speed", "stamina", "power", "mentality"]
   const out = {} as AttributeSet
   for (const k of keys) {
     const noise = Math.round((rand() - 0.5) * 8)
     const v = ovr + (b[k] ?? 0) + noise
-    out[k] = Math.max(25, Math.min(99, v))
+    out[k as keyof AttributeSet] = Math.max(25, Math.min(99, v))
   }
+  out.potential       = Math.round(50 + rand() * 30)
+  out.professionalism = Math.round(40 + rand() * 40)
+  out.durability      = Math.round(45 + rand() * 35)
+  out.adaptability    = Math.round(45 + rand() * 35)
   return out
 }
 
