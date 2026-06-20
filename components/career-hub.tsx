@@ -871,16 +871,16 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       {/* Career header */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between">
         <div>
-          <div className="text-lg font-bold">{player.firstName} {player.lastName}</div>
-          <div className="text-sm text-zinc-400">{formatDate(career.date)} · Circuito {player.tour}</div>
+          <div className="text-lg font-bold">{career.player.firstName} {career.player.lastName}</div>
+          <div className="text-sm text-zinc-400">{formatDate(career.date)} · Circuito {career.player.tour}</div>
         </div>
         <div className="flex gap-4 text-center">
           <div>
-            <div className="text-xl font-bold text-blue-300">{computeOverall(player.attributes, player.playStyle)}</div>
+            <div className="text-xl font-bold text-blue-300">{computeOverall(career.player.attributes, career.player.playStyle)}</div>
             <div className="text-xs text-zinc-500">OVR</div>
           </div>
           <div>
-            <div className="text-xl font-bold">{player.age}</div>
+            <div className="text-xl font-bold">{career.player.age}</div>
             <div className="text-xs text-zinc-500">Edad</div>
           </div>
           <div>
