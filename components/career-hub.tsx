@@ -1138,8 +1138,8 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
             <div className="space-y-3">
               {VISIBLE_KEYS.map(key => {
                 const label = ATTRIBUTE_LABELS.find(a => a.key === key)?.label ?? key
-                const current = player.attributes[key] ?? 0
-                const cap = computeAttributeCap(key, player.playStyle, player.height, player.weight, player.tour, career.capBreakers)
+                const current = career.player.attributes[key] ?? 0
+                const cap = computeAttributeCap(key, career.player.playStyle, career.player.height, career.player.weight, career.player.tour, career.capBreakers)
                 const cost = attributeUpgradeCost(current)
                 const available = availableAttributePoints(career.level, career.spentAttributePoints)
                 const atCap = current >= cap
@@ -1178,7 +1178,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       {view === "ranking" && (
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
-          {buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date).slice(0, 249).map(r => (
+          {buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date).slice(0, 249).map(r => (
             <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
               ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
               <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
