@@ -332,9 +332,51 @@ function buildTour(tour: Tour): Rival[] {
 
 let _cache: Partial<Record<Tour, Rival[]>> = {}
 
-export function getRankings(tour: Tour): Rival[] {
+/**
+ * Devuelve el roster completo (incluye jugadores ya retirados a la fecha dada).
+ * Usar getRankings() para el roster activo filtrado por currentDate.
+ */
+function getFullRoster(tour: Tour): Rival[] {
   if (!_cache[tour]) _cache[tour] = buildTour(tour)
   return _cache[tour]!
+}
+
+/**
+ * Ranking activo: excluye a los jugadores ya retirados a `currentDate`,
+ * y rellena el campo con jugadores jóvenes generados para mantener FIELD_SIZE.
+ */
+export function getRankings(tour: Tour, currentDate: string = SEASON_START): Rival[] {
+  const full = getFullRoster(tour)
+  const active = full.filter(r => !r.retirementDate || r.retirementDate > currentDate)
+
+  if (active.length >= FIELD_SIZE) {
+    return active.slice(0, FIELD_SIZE)
+  }
+
+  // Generar reemplazos jóvenes determinísticos para completar el campo.
+  const rand = mulberry32(tour === "ATP" ? 0x5f3759 ^ 0x1234 : 0x9e3779 ^ 0x1234)
+  const replacements: Rival[] = []
+  let nextRank = active.length + 1
+  let genIndex = 0
+  while (active.length + replacements.length < FIELD_SIZE) {
+    const id = `${tour}-replacement-${genIndex}`
+    const r = generatedRival(tour, nextRank, rand, id)
+    // Jugadores de reemplazo entran jóvenes, como promesas nuevas.
+    r.age = 17 + Math.floor(rand() * 4) // 17-20
+    r.retirementDate = computeRetirementDate(r.age, rand)
+    replacements.push(r)
+    nextRank++
+    genIndex++
+  }
+
+  const merged = [...active, ...replacements]
+  merged.sort((a, b) => b.overall - a.overall || a.lastName.localeCompare(b.lastName))
+  merged.forEach((r, i) => {
+    r.rank = i + 1
+    r.points = pointsForRank(i + 1)
+  })
+
+  return merged
 }
 
 export function divisionForRank(rank: number): import("./types").Division {
