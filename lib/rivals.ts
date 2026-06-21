@@ -179,7 +179,15 @@ function attrsFromOverall(ovr: number, style: PlayStyle, rand: () => number): At
   return out
 }
 
+/** Fechas de retiro fijas para jugadores específicos (override del cálculo determinístico). */
+const FIXED_RETIREMENTS: Record<string, string> = {
+  "Wawrinka": endOfSeason(2026),
+  "Monfils": endOfSeason(2026),
+  "Djokovic": endOfSeason(2028),
+}
+
 function makeRival(seed: Seed, tour: Tour, rand: () => number, id: string): Rival {
+  const retirementDate = FIXED_RETIREMENTS[seed.last] ?? computeRetirementDate(seed.age, rand)
   return {
     id,
     tour,
@@ -200,6 +208,7 @@ function makeRival(seed: Seed, tour: Tour, rand: () => number, id: string): Riva
     injuryProneness: seed.injury,
     currentAbility: seed.currentAbility,
     potentialAbility: seed.potentialAbility,
+    retirementDate,
   }
 }
 
@@ -248,6 +257,7 @@ function generatedRival(tour: Tour, rank: number, rand: () => number, id: string
     injuryProneness,
     currentAbility: ovr,
     potentialAbility: Math.min(99, ovr + Math.floor(rand() * 15)),
+    retirementDate: computeRetirementDate(age, rand),
   }
 }
 
@@ -260,6 +270,35 @@ function pointsForRank(rank: number): number {
   if (rank <= 100) return Math.round(1200 - (rank - 50) * 12)
   if (rank <= 175) return Math.round(620 - (rank - 100) * 4)
   return Math.max(8, Math.round(320 - (rank - 175) * 2))
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Retirement                                                                  */
+/* -------------------------------------------------------------------------- */
+
+const SEASON_START = "2026-06-08"
+
+/** Fecha (lunes) de fin de una temporada dada, usada como corte para retiros. */
+function endOfSeason(year: number): string {
+  // Aproximamos el fin de temporada (ATP Finals) a mediados de noviembre.
+  return `${year}-11-16`
+}
+
+/**
+ * Calcula la fecha de retiro determinística para un jugador según su edad actual
+ * (al arrancar la carrera, SEASON_START) y un valor aleatorio determinístico (rand).
+ * Jugadores más jóvenes tienen probabilidad ~0 de retirarse pronto; a partir de los
+ * 33-34 la probabilidad de un retiro dentro de los próximos años crece.
+ */
+function computeRetirementDate(age: number, rand: () => number): string | null {
+  if (age < 32) return null // muy joven para tener fecha de retiro fija todavía
+
+  // Años de carrera restantes estimados: declina con la edad, con ruido.
+  const baseYearsLeft = Math.max(0.5, 6 - (age - 32) * 0.8)
+  const yearsLeft = Math.max(0.5, baseYearsLeft + (rand() - 0.5) * 2)
+
+  const retireYear = 2026 + Math.round(yearsLeft)
+  return endOfSeason(Math.min(2034, Math.max(2026, retireYear)))
 }
 
 /* -------------------------------------------------------------------------- */

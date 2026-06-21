@@ -548,6 +548,7 @@ export function CareerHub({ player }: Props) {
     injuryProneness: 20,
     currentAbility: Math.round(Object.values(career.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(career.player.attributes).length),
     potentialAbility: Math.round(Object.values(career.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(career.player.attributes).length) + 10,
+    retirementDate: null,
   }
 
   const upcoming = upcomingTournaments(career.date)

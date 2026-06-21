@@ -190,6 +190,7 @@ export function buildLiveRanking(
     currentAbility: userOverall,
     potentialAbility: userOverall + 5,
     isUser: true,
+    retirementDate: null,
   }
   // Exclude the deepest rival so the field size stays constant after insertion.
   const withBonus = base.slice(0, base.length - 1).map(r => {
