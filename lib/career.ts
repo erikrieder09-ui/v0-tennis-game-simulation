@@ -167,7 +167,7 @@ export function buildLiveRanking(
   rivalBonusHistory: Record<string, PointsEntry[]> = {},
   currentDate: string = SEASON_START
 ): RankedPlayer[] {
-  const base = getRankings(tour)
+  const base = getRankings(tour, currentDate)
   const userOverall = computeOverall(player.attributes, player.playStyle)
   const userRow: RankedPlayer = {
     id: "USER",

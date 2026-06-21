@@ -525,7 +525,7 @@ export function CareerHub({ player }: Props) {
   const [qualyCompleted, setQualyCompleted] = useState(false)
   const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
 
-  const rivals = useMemo(() => getRankings(player.tour), [player.tour])
+  const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
 
   const userRival: Rival = {
