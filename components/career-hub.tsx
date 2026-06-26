@@ -74,6 +74,8 @@ interface DrawMatch {
   winner: Rival | null
   score: string | null
   isUser: boolean
+  group?: "A" | "B"
+  phase?: "group" | "semifinal" | "final"
 }
 
 /**
@@ -294,6 +296,175 @@ function simulateToChampion(
       current = simNonUserMatches(current, surface, bestOf)
     } else {
       current = advanceDraw(current, surface, bestOf)
+    }
+    guard++
+  }
+  return current
+}
+/* -------------------------------------------------------------------------- */
+/*  ATP Finals — Round Robin + Knockout                                        */
+/* -------------------------------------------------------------------------- */
+
+const ROUND_ROBIN_PAIRINGS: [number, number][][] = [
+  [[0, 3], [1, 2]],
+  [[0, 2], [3, 1]],
+  [[0, 1], [2, 3]],
+]
+
+function buildRoundRobinDraw(
+  rivals: Rival[],
+  userRival: Rival,
+  isDirect: boolean
+): DrawMatch[] {
+  const field: Rival[] = isDirect
+    ? [...rivals.slice(0, 7), userRival].sort((a, b) => a.rank - b.rank)
+    : rivals.slice(0, 8)
+
+  const groupA: (Rival | null)[] = [field[0] ?? null, field[3] ?? null, field[4] ?? null, field[7] ?? null]
+  const groupB: (Rival | null)[] = [field[1] ?? null, field[2] ?? null, field[5] ?? null, field[6] ?? null]
+
+  const matches: DrawMatch[] = []
+  let counter = 0
+
+  for (let round = 0; round < 3; round++) {
+    const roundPairs = ROUND_ROBIN_PAIRINGS[round]
+    ;([
+      { group: "A" as const, players: groupA },
+      { group: "B" as const, players: groupB },
+    ]).forEach(({ group, players }) => {
+      roundPairs.forEach(([i, j]) => {
+        const p1 = players[i]
+        const p2 = players[j]
+        matches.push({
+          id: `rr-${group}-${round}-${counter++}`,
+          round,
+          position: counter,
+          p1: p1 ?? null,
+          p2: p2 ?? null,
+          winner: null,
+          score: null,
+          isUser: p1?.id === "USER" || p2?.id === "USER",
+          group,
+          phase: "group",
+        })
+      })
+    })
+  }
+
+  return matches
+}
+
+interface GroupStanding {
+  rival: Rival
+  wins: number
+  losses: number
+  setsWon: number
+  setsLost: number
+}
+
+function computeGroupStandings(matches: DrawMatch[], group: "A" | "B"): GroupStanding[] {
+  const groupMatches = matches.filter(m => m.group === group && m.phase === "group")
+  const standings: Record<string, GroupStanding> = {}
+
+  groupMatches.forEach(m => {
+    if (m.p1 && !standings[m.p1.id]) standings[m.p1.id] = { rival: m.p1, wins: 0, losses: 0, setsWon: 0, setsLost: 0 }
+    if (m.p2 && !standings[m.p2.id]) standings[m.p2.id] = { rival: m.p2, wins: 0, losses: 0, setsWon: 0, setsLost: 0 }
+  })
+
+  groupMatches.forEach(m => {
+    if (!m.winner || !m.p1 || !m.p2) return
+    const loserId = m.winner.id === m.p1.id ? m.p2.id : m.p1.id
+    standings[m.winner.id].wins++
+    standings[loserId].losses++
+
+    if (m.score) {
+      const sets = m.score.trim().split(" ")
+      sets.forEach(s => {
+        const clean = s.replace(/\(.*\)/, "")
+        const [a, b] = clean.split("-").map(Number)
+        if (!isNaN(a) && !isNaN(b)) {
+          if (a > b) {
+            standings[m.p1!.id].setsWon++
+            standings[m.p2!.id].setsLost++
+          } else {
+            standings[m.p2!.id].setsWon++
+            standings[m.p1!.id].setsLost++
+          }
+        }
+      })
+    }
+  })
+
+  return Object.values(standings).sort((a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins
+    return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost)
+  })
+}
+
+function advanceFromGroupStage(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
+  const groupMatches = matches.filter(m => m.phase === "group")
+  const allDecided = groupMatches.every(m => m.winner)
+  if (!allDecided) return matches
+  if (matches.some(m => m.phase === "semifinal")) return matches
+
+  const standingsA = computeGroupStandings(matches, "A")
+  const standingsB = computeGroupStandings(matches, "B")
+
+  const a1 = standingsA[0]?.rival ?? null
+  const a2 = standingsA[1]?.rival ?? null
+  const b1 = standingsB[0]?.rival ?? null
+  const b2 = standingsB[1]?.rival ?? null
+
+  const sf1: DrawMatch = {
+    id: "atpf-sf1", round: 3, position: 0,
+    p1: a1, p2: b2, winner: null, score: null,
+    isUser: a1?.id === "USER" || b2?.id === "USER",
+    phase: "semifinal",
+  }
+  const sf2: DrawMatch = {
+    id: "atpf-sf2", round: 3, position: 1,
+    p1: b1, p2: a2, winner: null, score: null,
+    isUser: b1?.id === "USER" || a2?.id === "USER",
+    phase: "semifinal",
+  }
+
+  let updated = [...matches, sf1, sf2]
+  updated = simNonUserMatches(updated, surface, bestOf)
+  return updated
+}
+
+function advanceFromSemifinals(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
+  const semis = matches.filter(m => m.phase === "semifinal")
+  if (semis.length < 2 || !semis.every(m => m.winner)) return matches
+  if (matches.some(m => m.phase === "final")) return matches
+
+  const final: DrawMatch = {
+    id: "atpf-final", round: 4, position: 0,
+    p1: semis[0].winner, p2: semis[1].winner, winner: null, score: null,
+    isUser: semis[0].winner?.id === "USER" || semis[1].winner?.id === "USER",
+    phase: "final",
+  }
+
+  let updated = [...matches, final]
+  updated = simNonUserMatches(updated, surface, bestOf)
+  return updated
+}
+
+function simulateRoundRobinToChampion(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
+  let current = simNonUserMatches(matches, surface, bestOf)
+  let guard = 0
+  while (guard < 10) {
+    const final = current.find(m => m.phase === "final")
+    if (final?.winner) break
+
+    const beforeLength = current.length
+    current = advanceFromGroupStage(current, surface, bestOf)
+    current = advanceFromSemifinals(current, surface, bestOf)
+
+    if (current.length === beforeLength) {
+      const pending = current.some(m => !m.winner)
+      if (!pending) break
+      current = simNonUserMatches(current, surface, bestOf)
     }
     guard++
   }
@@ -573,11 +744,15 @@ export function CareerHub({ player }: Props) {
     if (status.kind === "ineligible") {
   const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
   const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
-  let matches = buildDraw(t, rivsForDraw, userRival, false)
+  let matches = t.category === "atp-finals"
+    ? buildRoundRobinDraw(rivsForDraw, userRival, false)
+    : buildDraw(t, rivsForDraw, userRival, false)
   matches = simNonUserMatches(matches, t.surface, bestOf)
 
   if (autoSimulate === true) {
-    matches = simulateToChampion(matches, t.surface, bestOf)
+    matches = t.category === "atp-finals"
+      ? simulateRoundRobinToChampion(matches, t.surface, bestOf)
+      : simulateToChampion(matches, t.surface, bestOf)
     const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusHistory, career.date)
     setCareer(prev => ({
       ...prev,
@@ -605,7 +780,9 @@ export function CareerHub({ player }: Props) {
 
     if (status.kind === "direct") {
       setPlayingQualy(false)
-      matches = buildDraw(t, rivsForDraw, userRival, true)
+      matches = t.category === "atp-finals"
+        ? buildRoundRobinDraw(rivsForDraw, userRival, true)
+        : buildDraw(t, rivsForDraw, userRival, true)
     } else {
       setPlayingQualy(true)
       const qualyEntry = CATEGORY_INFO[t.category].qualyEntryRank
@@ -650,12 +827,23 @@ export function CareerHub({ player }: Props) {
     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
 
     const info = CATEGORY_INFO[selectedT.category]
-    const rounds = Math.log2(info.drawSize)
     const currentRound = drawMatches.filter(m => m.round === Math.max(...drawMatches.map(x => x.round))).length > 0
       ? Math.max(...drawMatches.map(x => x.round))
       : 0
-    const ptsEarned = userWon ? pointsForResult(selectedT.category, rounds, currentRound + 1) : pointsForResult(selectedT.category, rounds, currentRound)
-    const prizeEarned = userWon ? prizeForResult(selectedT.category, rounds, currentRound + 1) : prizeForResult(selectedT.category, rounds, currentRound)
+
+    let ptsEarned: number
+    let prizeEarned: number
+    if (selectedT.category === "atp-finals") {
+      const ATPF_PTS = { group: 200, semifinal: 400, final: info.winnerPoints }
+      const ATPF_PRIZE = { group: 250000, semifinal: 600000, final: info.winnerPrize }
+      const phase = currentRound <= 2 ? "group" : currentRound === 3 ? "semifinal" : "final"
+      ptsEarned = userWon ? ATPF_PTS[phase] : Math.round(ATPF_PTS[phase] * 0.3)
+      prizeEarned = userWon ? ATPF_PRIZE[phase] : Math.round(ATPF_PRIZE[phase] * 0.3)
+    } else {
+      const rounds = Math.log2(info.drawSize)
+      ptsEarned = userWon ? pointsForResult(selectedT.category, rounds, currentRound + 1) : pointsForResult(selectedT.category, rounds, currentRound)
+      prizeEarned = userWon ? prizeForResult(selectedT.category, rounds, currentRound + 1) : prizeForResult(selectedT.category, rounds, currentRound)
+    }
 
     const updatedMatches = drawMatches.map(m => {
       if (m.id !== activeMatch.drawMatchId) return m
@@ -669,7 +857,9 @@ export function CareerHub({ player }: Props) {
     let justClassified = false
 
     if (userWon) {
-      finalMatches = advanceDraw(updatedMatches, selectedT.surface, bestOf)
+      finalMatches = selectedT.category === "atp-finals"
+        ? advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf), selectedT.surface, bestOf)
+        : advanceDraw(updatedMatches, selectedT.surface, bestOf)
 
       if (playingQualy) {
         const qualyRounds = Math.log2(16) - 1
@@ -693,6 +883,12 @@ export function CareerHub({ player }: Props) {
           mainMatches = simulateToChampion(mainMatches, selectedT.surface, bestOf)
         }
         finalMatches = mainMatches
+      } else if (selectedT.category === "atp-finals") {
+        // Perdió un partido de grupo: el torneo sigue, solo avanza si el grupo está completo
+        finalMatches = advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf), selectedT.surface, bestOf)
+        if (autoSimulate === true) {
+          finalMatches = simulateRoundRobinToChampion(finalMatches, selectedT.surface, bestOf)
+        }
       } else {
         // Perdió en cuadro principal: avanzar la ronda actual
         finalMatches = advanceDraw(updatedMatches, selectedT.surface, bestOf)
@@ -767,6 +963,26 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
   function handleSimularRonda() {
     if (!selectedT) return
     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
+
+    if (selectedT.category === "atp-finals") {
+      let current = simNonUserMatches(drawMatches, selectedT.surface, bestOf)
+      current = advanceFromGroupStage(current, selectedT.surface, bestOf)
+      current = advanceFromSemifinals(current, selectedT.surface, bestOf)
+
+      const final = current.find(m => m.phase === "final")
+      const finished = !!final?.winner
+      if (finished) {
+        const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
+        setCareer(prev => ({
+          ...prev,
+          tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
+          rivalBonusHistory: bonusMap,
+        }))
+      }
+      setDrawMatches([...current])
+      return
+    }
+
     let current = drawMatches
     const maxR = Math.max(...current.map(m => m.round))
     const roundMatches = current.filter(m => m.round === maxR)
@@ -785,7 +1001,6 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       current = advanceDraw(current, selectedT.surface, bestOf)
     }
 
-    // Si llegamos al campeón, guardamos resultado y repartimos puntos
     const newMaxR = Math.max(...current.map(m => m.round))
     const newRoundMatches = current.filter(m => m.round === newMaxR)
     const finished = newRoundMatches.length === 1 && !!newRoundMatches[0].winner
@@ -800,6 +1015,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
 
     setDrawMatches([...current])
   }
+  
 
   function advanceWeek() {
     setCareer(prev => {
