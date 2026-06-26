@@ -634,6 +634,90 @@ function MatchSimUI({ config, userIs, onEnd }: {
 /* -------------------------------------------------------------------------- */
 
 function DrawViewer({ matches, onUserMatchClick }: { matches: DrawMatch[], onUserMatchClick: (m: DrawMatch) => void }) {
+  const isRoundRobin = matches.some(m => m.phase === "group")
+
+  if (isRoundRobin) {
+    const groupAMatches = matches.filter(m => m.group === "A" && m.phase === "group")
+    const groupBMatches = matches.filter(m => m.group === "B" && m.phase === "group")
+    const semis = matches.filter(m => m.phase === "semifinal")
+    const final = matches.filter(m => m.phase === "final")
+
+    const MatchCard = ({ m }: { m: DrawMatch }) => (
+      <div
+        className={`border rounded-lg overflow-hidden w-44 text-xs
+          ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
+          ${m.winner ? "opacity-90" : ""}
+        `}
+        onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
+      >
+        {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
+          <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
+            <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
+            <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+          </div>
+        ))}
+        {m.score && <div className="px-2 py-0.5 text-[10px] text-zinc-500 border-t border-zinc-800">{m.score}</div>}
+        {m.isUser && !m.winner && <div className="px-2 py-1 text-[10px] text-yellow-400 border-t border-yellow-500/30">▶ Jugar partido</div>}
+      </div>
+    )
+
+    const rounds = [0, 1, 2]
+
+    return (
+      <div className="space-y-6">
+        {/* Fase de grupos */}
+        <div className="grid grid-cols-2 gap-6">
+          {(["A", "B"] as const).map(group => {
+            const gMatches = group === "A" ? groupAMatches : groupBMatches
+            return (
+              <div key={group}>
+                <div className="text-xs font-bold text-zinc-400 mb-3">GRUPO {group}</div>
+                <div className="space-y-4">
+                  {rounds.map(r => {
+                    const rMatches = gMatches.filter(m => m.round === r)
+                    return (
+                      <div key={r}>
+                        <div className="text-[10px] text-zinc-600 mb-1">Jornada {r + 1}</div>
+                        <div className="flex flex-col gap-2">
+                          {rMatches.map(m => <MatchCard key={m.id} m={m} />)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Semifinales y Final */}
+        {(semis.length > 0 || final.length > 0) && (
+          <div>
+            <div className="text-xs font-bold text-zinc-400 mb-3">FASE FINAL</div>
+            <div className="flex gap-6 overflow-x-auto pb-2">
+              {semis.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-zinc-600 mb-1">Semifinales</div>
+                  <div className="flex flex-col gap-2">
+                    {semis.map(m => <MatchCard key={m.id} m={m} />)}
+                  </div>
+                </div>
+              )}
+              {final.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-zinc-600 mb-1">Final</div>
+                  <div className="flex flex-col gap-2">
+                    {final.map(m => <MatchCard key={m.id} m={m} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b)
   const roundLabels = ["1ª Ronda", "2ª Ronda", "3ª Ronda", "4ª Ronda", "Cuartos", "Semifinal", "Final"]
 
