@@ -1049,12 +1049,31 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
 
     if (selectedT.category === "atp-finals") {
-      let current = simNonUserMatches(drawMatches, selectedT.surface, bestOf)
+      let current = drawMatches
+
+      // Simular partidos pendientes de la jornada actual del grupo
+      const pendingGroup = current.filter(m => m.phase === "group" && !m.winner)
+      if (pendingGroup.length > 0) {
+        // Simular solo la jornada más baja que tenga pendientes
+        const nextRound = Math.min(...pendingGroup.map(m => m.round))
+        current = current.map(m => {
+          if (m.phase !== "group" || m.round !== nextRound || m.winner || m.isUser || !m.p1 || !m.p2) return m
+          const config: MatchConfig = {
+            player1: m.p1, player2: m.p2,
+            surface: selectedT.surface as any,
+            bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+          }
+          const result = simulateFullMatch(config)
+          return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1) }
+        })
+      }
+
+      // Intentar avanzar a semifinales y final
       current = advanceFromGroupStage(current, selectedT.surface, bestOf)
       current = advanceFromSemifinals(current, selectedT.surface, bestOf)
 
-      const final = current.find(m => m.phase === "final")
-      const finished = !!final?.winner
+      const finalMatch = current.find(m => m.phase === "final")
+      const finished = !!finalMatch?.winner
       if (finished) {
         const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
         setCareer(prev => ({
