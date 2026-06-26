@@ -1362,6 +1362,26 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           )}
 
           {matchResult && (() => {
+            const isRoundRobin = drawMatches.some(m => m.phase === "group")
+
+            if (isRoundRobin) {
+              const finalMatch = drawMatches.find(m => m.phase === "final")
+              if (finalMatch?.winner) {
+                return (
+                  <div className="bg-yellow-500/10 border border-yellow-600 rounded-xl p-3 text-sm text-yellow-300 text-center">
+                    🏆 Campeón ATP Finals: {finalMatch.winner.firstName} {finalMatch.winner.lastName}
+                  </div>
+                )
+              }
+              const hasUserPending = drawMatches.some(m => m.isUser && !m.winner)
+              if (hasUserPending) return null
+              return (
+                <Button className="w-full" variant="outline" onClick={handleSimularRonda}>
+                  ▶ Simular próxima jornada
+                </Button>
+              )
+            }
+
             const maxR = Math.max(...drawMatches.map(m => m.round))
             const roundMatches = drawMatches.filter(m => m.round === maxR)
             const isFinalDecided = roundMatches.length === 1 && roundMatches[0]?.winner
