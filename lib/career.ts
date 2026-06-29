@@ -98,6 +98,8 @@ export interface CareerState {
 
   /** última fecha en que se aplicó progresión anual (para no duplicar ni saltear) */
   lastProgressionDate: string
+  /** palmarés de rivales: rivalId → lista de nombres de torneos ganados */
+  rivalPalmares: Record<string, string[]>
 }
 
  
@@ -149,6 +151,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     spentAttributePoints: -5, // negativo = puntos de regalo extra sumados a los del nivel
     capBreakers: {},
     lastProgressionDate: SEASON_START,
+    rivalPalmares: {},
   }
 }
  

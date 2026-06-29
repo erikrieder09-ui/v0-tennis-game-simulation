@@ -108,6 +108,21 @@ function computeTournamentPointsBonus(
   return updated
 }
 
+function updateRivalPalmares(
+  matches: DrawMatch[],
+  tournamentName: string,
+  existingPalmares: Record<string, string[]>
+): Record<string, string[]> {
+  const maxRound = Math.max(...matches.map(m => m.round))
+  const finalMatch = matches.find(m => m.round === maxRound)
+  if (!finalMatch?.winner || finalMatch.winner.id === "USER") return existingPalmares
+
+  const winnerId = finalMatch.winner.id
+  const updated = { ...existingPalmares }
+  updated[winnerId] = [...(updated[winnerId] ?? []), tournamentName]
+  return updated
+}
+
 function buildDraw(
   t: Tournament,
   rivals: Rival[],
@@ -1027,6 +1042,9 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
         ? { ...prev.tournamentResults, [selectedT.id]: finalMatches }
         : prev.tournamentResults,
       rivalBonusHistory: bonusUpdate ?? prev.rivalBonusHistory,
+rivalPalmares: bonusUpdate
+  ? updateRivalPalmares(finalMatches, selectedT.name, prev.rivalPalmares)
+  : prev.rivalPalmares,
       history: [...prev.history, {
         id: `${selectedT.id}-${Date.now()}`,
         date: career.date,
@@ -1078,10 +1096,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       if (finished) {
         const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
         setCareer(prev => ({
-          ...prev,
-          tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
-          rivalBonusHistory: bonusMap,
-        }))
+  ...prev,
+  tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
+  rivalBonusHistory: bonusMap,
+  rivalPalmares: updateRivalPalmares(current, selectedT.name, prev.rivalPalmares),
+}))
       }
       setDrawMatches([...current])
       return
@@ -1111,10 +1130,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     if (finished) {
       const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
       setCareer(prev => ({
-        ...prev,
-        tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
-        rivalBonusHistory: bonusMap,
-      }))
+  ...prev,
+  tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
+  rivalBonusHistory: bonusMap,
+  rivalPalmares: updateRivalPalmares(current, selectedT.name, prev.rivalPalmares),
+}))
     }
 
     setDrawMatches([...current])
@@ -1352,10 +1372,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
                       : simulateToChampion(drawMatches, selectedT.surface, bestOf)
                     const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusHistory, career.date)
                     setCareer(prev => ({
-                      ...prev,
-                      tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
-                      rivalBonusHistory: bonusMap,
-                    }))
+  ...prev,
+  tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
+  rivalBonusHistory: bonusMap,
+  rivalPalmares: updateRivalPalmares(finished, selectedT.name, prev.rivalPalmares),
+}))
                     setDrawMatches(finished)
                   }}
                 >
