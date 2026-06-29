@@ -232,7 +232,7 @@ function addWeeks(iso: string, weeks: number): string {
 
 const CYCLE_START_WK = 31  // semana donde arranca el patrón anual repetible (Oceania swing)
 const CYCLE_LENGTH = 52    // duración de un año calendario en semanas
-const CYCLES_TO_GENERATE = 6 // cuántos años repetir hacia adelante (~6 años de carrera jugable)
+const CYCLES_TO_GENERATE = 24 // cuántos años repetir hacia adelante (~6 años de carrera jugable)
 
 let _calendar: Tournament[] | null = null
 

@@ -60,7 +60,9 @@ export function totalPointsForLevel(level: number): number {
   let total = 0
   for (let l = 1; l <= level; l++) {
     total += 1
-    if (l % 5 === 0) total += 2
+    if (l % 25 === 0) total += 10
+    else if (l % 10 === 0) total += 5
+    else if (l % 5 === 0) total += 3
   }
   return total
 }
