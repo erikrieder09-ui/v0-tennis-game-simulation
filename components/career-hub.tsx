@@ -1343,7 +1343,9 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
                   onClick={() => {
                     setAutoSimulate(true)
                     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
-                    const finished = simulateToChampion(drawMatches, selectedT.surface, bestOf)
+                    const finished = selectedT.category === "atp-finals"
+                      ? simulateRoundRobinToChampion(drawMatches, selectedT.surface, bestOf)
+                      : simulateToChampion(drawMatches, selectedT.surface, bestOf)
                     const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusHistory, career.date)
                     setCareer(prev => ({
                       ...prev,
@@ -1380,7 +1382,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
             </div>
           )}
 
-          {matchResult && (() => {
+          {(() => {
             const isRoundRobin = drawMatches.some(m => m.phase === "group")
 
             if (isRoundRobin) {
@@ -1400,6 +1402,8 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
                 </Button>
               )
             }
+
+            if (!matchResult) return null
 
             const maxR = Math.max(...drawMatches.map(m => m.round))
             const roundMatches = drawMatches.filter(m => m.round === maxR)
@@ -1560,4 +1564,3 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
   )
 }
 
-  
