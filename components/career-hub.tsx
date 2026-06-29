@@ -766,7 +766,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training"
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" 
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => createCareer(player))
@@ -1238,6 +1238,9 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           </Button>
           <Button size="sm" variant={view === "training" ? "default" : "outline"} onClick={() => setView("training")}>
             🏋️ Entrenamiento
+            <Button size="sm" variant="outline" className="text-red-400 border-red-800 hover:bg-red-900/30" onClick={() => setView("retire")}>
+            🚪 Retirarse
+            </Button>
           </Button>
         </div>
       )}
@@ -1563,5 +1566,63 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       )}
     </div>
   )
+
+{/* RETIRE */}
+      {view === "retire" && (
+        <div className="space-y-4">
+          <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center space-y-4">
+            <div className="text-2xl">🎾</div>
+            <div className="text-lg font-bold text-red-300">¿Querés retirarte del tenis profesional?</div>
+            <div className="text-sm text-zinc-400">
+              {career.player.firstName} {career.player.lastName} — {career.player.age} años — #{playerRank} del mundo
+            </div>
+            <div className="text-xs text-zinc-500">
+              Esta acción es irreversible. Tu carrera quedará registrada con {career.matchesWon}W / {career.matchesLost}L y {career.titles} título{career.titles !== 1 ? "s" : ""}.
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <Button variant="outline" onClick={() => setView("hub")}>
+                ← Volver
+              </Button>
+              <Button
+                className="bg-red-700 hover:bg-red-600 text-white"
+                onClick={() => setView("retired")}
+              >
+                Confirmar retiro
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RETIRED */}
+      {view === "retired" && (
+        <div className="space-y-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 text-center space-y-4">
+            <div className="text-3xl">🏆</div>
+            <div className="text-xl font-bold">{career.player.firstName} {career.player.lastName} se retiró</div>
+            <div className="text-sm text-zinc-400">
+              {career.player.nationality} · {career.player.age} años · Mejor ranking: #{career.bestRank}
+            </div>
+            <div className="grid grid-cols-3 gap-3 mt-4 text-center">
+              <div className="bg-zinc-800 rounded-lg p-3">
+                <div className="text-xl font-bold text-yellow-300">{career.titles}</div>
+                <div className="text-xs text-zinc-500">Títulos</div>
+              </div>
+              <div className="bg-zinc-800 rounded-lg p-3">
+                <div className="text-xl font-bold">{career.matchesWon}W / {career.matchesLost}L</div>
+                <div className="text-xs text-zinc-500">Récord</div>
+              </div>
+              <div className="bg-zinc-800 rounded-lg p-3">
+                <div className="text-xl font-bold text-green-400">{formatMoney(career.money)}</div>
+                <div className="text-xs text-zinc-500">Ganado</div>
+              </div>
+            </div>
+            <div className="text-xs text-zinc-600 mt-4">
+              {career.log.slice(-3).map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          </div>
+        </div>
+      )}
+
 }
 
