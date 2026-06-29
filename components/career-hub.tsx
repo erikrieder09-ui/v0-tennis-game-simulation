@@ -44,6 +44,7 @@ const CAT_COLOR: Record<string, string> = {
   "futures": "bg-zinc-800 text-zinc-400 border-zinc-700",
 }
 
+
 function surfaceBadge(surface: string) {
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${SURFACE_COLOR[surface] ?? "bg-zinc-800 text-zinc-400 border-zinc-600"}`}>
@@ -794,6 +795,7 @@ export function CareerHub({ player }: Props) {
   const [playedTournaments, setPlayedTournaments] = useState<Set<string>>(new Set())
   const [qualyCompleted, setQualyCompleted] = useState(false)
   const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
+  const [selectedRival, setSelectedRival] = useState<Rival | null>(null)
 
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
@@ -1205,6 +1207,113 @@ rivalPalmares: bonusUpdate
     }))
   }
 
+function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
+  const palmares = career.rivalPalmares[rival.id] ?? []
+  const ATTR_LABELS: Record<string, string> = {
+    serve: "Saque", drive: "Drive", backhand: "Revés", volley: "Volea",
+    return: "Devolución", defense: "Defensa", speed: "Velocidad",
+    stamina: "Resistencia", power: "Potencia", mentality: "Mentalidad",
+  }
+  const STYLE_LABELS: Record<string, string> = {
+    "aggressive-baseline": "Agresivo de fondo",
+    "defensive-baseline": "Defensivo",
+    "serve-volley": "Saque y volea",
+    "all-around": "All-around",
+  }
+  const SURFACE_LABELS: Record<string, string> = {
+    hard: "Dura", clay: "Polvo de ladrillo", grass: "Césped", carpet: "Indoor"
+  }
+  const ovr = computeOverall(rival.attributes, rival.playStyle)
+  const visibleKeys = ["serve","drive","backhand","volley","return","defense","speed","stamina","power","mentality"] as const
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-lg font-bold">{rival.firstName} {rival.lastName}</div>
+            <div className="text-sm text-zinc-400">{rival.nationality} · {rival.age} años · #{rival.rank}</div>
+          </div>
+          <div className="flex flex-col items-center bg-blue-900/40 rounded-lg px-3 py-1">
+            <span className="text-xl font-bold text-blue-300">{ovr}</span>
+            <span className="text-[10px] text-zinc-500">OVR</span>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Estilo</div>
+            <div className="font-semibold">{STYLE_LABELS[rival.playStyle] ?? rival.playStyle}</div>
+          </div>
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Superficie favorita</div>
+            <div className="font-semibold">{SURFACE_LABELS[rival.favSurface] ?? rival.favSurface}</div>
+          </div>
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Mano</div>
+            <div className="font-semibold">{rival.handedness === "right" ? "Diestro" : "Zurdo"}</div>
+          </div>
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Revés</div>
+            <div className="font-semibold">{rival.backhand === "two" ? "Dos manos" : "Una mano"}</div>
+          </div>
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Altura / Peso</div>
+            <div className="font-semibold">{rival.height} cm · {rival.weight} kg</div>
+          </div>
+          <div className="bg-zinc-800 rounded-lg p-2">
+            <div className="text-zinc-500 mb-0.5">Puntos ranking</div>
+            <div className="font-semibold">{rival.points} pts</div>
+          </div>
+        </div>
+
+        {/* Atributos */}
+        <div>
+          <div className="text-xs font-bold text-zinc-400 mb-2">ATRIBUTOS</div>
+          <div className="space-y-1.5">
+            {visibleKeys.map(key => {
+              const val = rival.attributes[key] ?? 0
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <div className="w-20 text-xs text-zinc-400 shrink-0">{ATTR_LABELS[key]}</div>
+                  <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500" style={{ width: `${val}%` }} />
+                  </div>
+                  <div className="w-6 text-right font-mono text-xs text-zinc-300">{val}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Palmarés */}
+        <div>
+          <div className="text-xs font-bold text-zinc-400 mb-2">PALMARÉS EN ESTA CARRERA</div>
+          {palmares.length === 0 ? (
+            <div className="text-xs text-zinc-600">Sin títulos registrados aún</div>
+          ) : (
+            <div className="space-y-1">
+              {[...new Set(palmares)].map((t, i) => {
+                const count = palmares.filter(x => x === t).length
+                return (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span className="text-zinc-300">{t}</span>
+                    {count > 1 && <span className="text-yellow-400 font-bold">×{count}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <Button variant="outline" className="w-full" onClick={onClose}>Cerrar</Button>
+      </div>
+    </div>
+  )
+}
+
   /* ---- RENDER ---- */
 
   return (
@@ -1258,9 +1367,9 @@ rivalPalmares: bonusUpdate
           </Button>
           <Button size="sm" variant={view === "training" ? "default" : "outline"} onClick={() => setView("training")}>
             🏋️ Entrenamiento
-            <Button size="sm" variant="outline" className="text-red-400 border-red-800 hover:bg-red-900/30" onClick={() => setView("retire")}>
+          </Button>
+          <Button size="sm" variant="outline" className="text-red-400 border-red-800 hover:bg-red-900/30" onClick={() => setView("retire")}>
             🚪 Retirarse
-            </Button>
           </Button>
         </div>
       )}
@@ -1548,8 +1657,12 @@ rivalPalmares: bonusUpdate
         <div className="space-y-2">
           <div className="text-sm font-bold text-zinc-400 mb-3">RANKING {player.tour}</div>
           {buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date).slice(0, 249).map(r => (
-            <div key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border
-              ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}>
+            <div
+  key={r.id}
+  className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer hover:border-zinc-600
+    ${r.isUser ? "border-yellow-500/50 bg-yellow-500/5" : "border-zinc-800 bg-zinc-900"}`}
+  onClick={() => !r.isUser && setSelectedRival(r)}
+>
               <span className={`w-8 text-right font-mono text-sm font-bold ${r.isUser ? "text-yellow-300" : "text-zinc-400"}`}>
                 #{r.rank}
               </span>
@@ -1588,7 +1701,7 @@ rivalPalmares: bonusUpdate
     </div>
   )
 
-{/* RETIRE */}
+ {/* RETIRE */}
       {view === "retire" && (
         <div className="space-y-4">
           <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center space-y-4">
@@ -1645,5 +1758,9 @@ rivalPalmares: bonusUpdate
         </div>
       )}
 
+      {selectedRival != null && (
+       <RivalModal rival={selectedRival!} onClose={() => setSelectedRival(null)} />
+      )}
+    
 }
 
