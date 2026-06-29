@@ -821,6 +821,7 @@ export function CareerHub({ player }: Props) {
     setMatchResult(null)
     setPlayingQualy(false)
     setQualyCompleted(false)
+    setAutoSimulate(false)
     setView("draw")
     return
   }
