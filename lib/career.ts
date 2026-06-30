@@ -293,91 +293,82 @@ function progressionRate(age: number): number {
 const PHYSICAL_ATTRS: (keyof AttributeSet)[] = ["speed", "stamina", "power"]
 const TECHNICAL_ATTRS: (keyof AttributeSet)[] = ["serve", "drive", "backhand", "volley"]
  
-export function applyAnnualProgression(career: CareerState): {
-  career: CareerState
-  changes: Partial<Record<keyof AttributeSet, number>>
-  summary: string
-} {
-  const age = career.player.age
-  const attrs = { ...career.player.attributes }
+export function evolveAttributes(
+  age: number,
+  attrs: AttributeSet,
+  playStyle: import("./types").PlayStyle
+): { attrs: AttributeSet; changes: Partial<Record<keyof AttributeSet, number>> } {
+  const result = { ...attrs }
   const changes: Partial<Record<keyof AttributeSet, number>> = {}
- 
   const rate = progressionRate(age)
- 
-  const estimatedPA = age <= 20 ? 90
-    : age <= 23 ? 85
-    : age <= 26 ? 80
-    : age <= 29 ? 75
-    : 65
- 
-  const currentOverall = computeOverall(attrs, career.player.playStyle)
+  const currentOverall = computeOverall(result, playStyle)
+  const estimatedPA = age <= 20 ? 90 : age <= 23 ? 85 : age <= 26 ? 80 : age <= 29 ? 75 : 65
   const roomToGrow = Math.max(0, estimatedPA - currentOverall)
- 
+
   if (age <= 30) {
     for (const key of TECHNICAL_ATTRS) {
       const gain = Math.round((rate * (roomToGrow / 20)) * (0.8 + Math.random() * 0.4))
       if (gain !== 0) {
-        attrs[key] = Math.min(99, Math.max(30, attrs[key] ?? 0 + gain))
-        if (gain !== 0) changes[key] = gain
+        result[key] = Math.min(99, Math.max(30, (result[key] ?? 0) + gain))
+        changes[key] = gain
       }
     }
     for (const key of PHYSICAL_ATTRS) {
       const physRate = age <= 26 ? rate * 0.7 : age <= 28 ? -0.2 : -0.5
       const gain = Math.round(physRate * (0.8 + Math.random() * 0.4))
       if (gain !== 0) {
-        attrs[key] = Math.min(99, Math.max(30, attrs[key] ?? 0 + gain))
+        result[key] = Math.min(99, Math.max(30, (result[key] ?? 0) + gain))
         changes[key] = gain
       }
     }
   } else {
     for (const key of PHYSICAL_ATTRS) {
       const loss = Math.round(Math.abs(rate) * (0.9 + Math.random() * 0.3))
-      attrs[key] = Math.max(30, attrs[key] ?? 0 - loss)
+      result[key] = Math.max(30, (result[key] ?? 0) - loss)
       changes[key] = -loss
     }
     for (const key of TECHNICAL_ATTRS) {
       const techRate = age <= 33 ? 0.2 : age <= 36 ? 0.6 : 1.0
       const loss = Math.random() < techRate ? 1 : 0
       if (loss > 0) {
-        attrs[key] = Math.max(30, attrs[key] ?? 0 - loss)
+        result[key] = Math.max(30, (result[key] ?? 0) - loss)
         changes[key] = -loss
       }
     }
   }
- 
-  if (age <= 35 && attrs.mentality < 95) {
-    const mentalGain = age <= 25 ? 1 : age <= 30 ? 1 : age <= 35 ? 0 : -1
+
+  if (age <= 35 && result.mentality < 95) {
+    const mentalGain = age <= 25 ? 1 : age <= 30 ? 1 : -1
     if (Math.random() < 0.7 && mentalGain > 0) {
-      attrs.mentality = Math.min(99, attrs.mentality + mentalGain)
+      result.mentality = Math.min(99, result.mentality + mentalGain)
       changes.mentality = mentalGain
     }
   }
- 
-  const newPlayer = {
-    ...career.player,
-    age: age + 1,
-    attributes: attrs,
-  }
- 
-  const gained = Object.entries(changes)
-    .filter(([, v]) => v > 0)
-    .map(([k, v]) => `${k} +${v}`)
-    .join(", ")
-  const lost = Object.entries(changes)
-    .filter(([, v]) => v < 0)
-    .map(([k, v]) => `${k} ${v}`)
-    .join(", ")
- 
+
+  return { attrs: result, changes }
+}
+
+export function applyAnnualProgression(career: CareerState): {
+  career: CareerState
+  changes: Partial<Record<keyof AttributeSet, number>>
+  summary: string
+} {
+  const age = career.player.age
+  const { attrs, changes } = evolveAttributes(age, { ...career.player.attributes }, career.player.playStyle)
+
+  const gained = Object.entries(changes).filter(([, v]) => (v as number) > 0).map(([k, v]) => `${k} +${v}`).join(", ")
+  const lost = Object.entries(changes).filter(([, v]) => (v as number) < 0).map(([k, v]) => `${k} ${v}`).join(", ")
+
   const summary = age <= 26
     ? `Temporada completada (${age}→${age + 1} años). Progresión: ${gained || "sin cambios"}.`
     : age <= 30
     ? `Temporada completada (${age}→${age + 1} años). Meseta: ${gained || ""}${lost ? ` | Físico: ${lost}` : ""}.`
     : `Temporada completada (${age}→${age + 1} años). Declive físico: ${lost}${gained ? ` | Ganado: ${gained}` : ""}.`
- 
+
   return {
     career: {
       ...career,
-      player: newPlayer,
+      player: { ...career.player, age: age + 1, attributes: attrs },
       log: [...career.log, summary],
     },
     changes,
