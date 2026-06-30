@@ -1,3 +1,4 @@
+import { evolveAttributes } from "./career"
 import type {
   AttributeSet,
   Backhand,
@@ -348,6 +349,27 @@ function getFullRoster(tour: Tour): Rival[] {
  * Ranking activo: excluye a los jugadores ya retirados a `currentDate`,
  * y rellena el campo con jugadores jóvenes generados para mantener FIELD_SIZE.
  */
+
+/**
+ * Evoluciona a todos los rivales activos del roster un año:
+ * los jóvenes mejoran, los veteranos declinan.
+ * Llamar una vez por temporada (cuando checkAnnualProgression se dispara).
+ */
+export function evolveRoster(tour: Tour, currentDate: string): void {
+  const roster = getFullRoster(tour)
+  roster.forEach(r => {
+    if (r.retirementDate && r.retirementDate <= currentDate) return // ya retirado
+    const { attrs } = evolveAttributes(r.age, { ...r.attributes }, r.playStyle)
+    r.age += 1
+    r.attributes = attrs
+    r.overall = Math.round(
+      Object.values(attrs).filter((v): v is number => typeof v === "number")
+        .reduce((a, b) => a + b, 0) / 10
+    )
+    r.currentAbility = r.overall
+  })
+}
+
 export function getRankings(tour: Tour, currentDate: string = SEASON_START): Rival[] {
   const full = getFullRoster(tour)
   const active = full.filter(r => !r.retirementDate || r.retirementDate > currentDate)
