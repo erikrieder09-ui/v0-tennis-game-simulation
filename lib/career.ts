@@ -98,7 +98,7 @@ export interface CareerState {
 
   /** última fecha en que se aplicó progresión anual (para no duplicar ni saltear) */
   lastProgressionDate: string
-  /** palmarés de rivales: rivalId → lista de nombres de torneos ganados */
+   /** palmarés de rivales CPU: rivalId → lista de nombres de torneos ganados */
   rivalPalmares: Record<string, string[]>
 }
 
@@ -395,4 +395,6 @@ export function checkAnnualProgression(career: CareerState): CareerState {
     return { ...updated, lastProgressionDate: career.date }
   }
   return career
+
 }
+

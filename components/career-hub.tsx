@@ -1698,10 +1698,7 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
           )}
         </div>
       )}
-    </div>
-  )
-
- {/* RETIRE */}
+   {/* RETIRE */}
       {view === "retire" && (
         <div className="space-y-4">
           <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center space-y-4">
@@ -1714,13 +1711,8 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
               Esta acción es irreversible. Tu carrera quedará registrada con {career.matchesWon}W / {career.matchesLost}L y {career.titles} título{career.titles !== 1 ? "s" : ""}.
             </div>
             <div className="grid grid-cols-2 gap-3 mt-4">
-              <Button variant="outline" onClick={() => setView("hub")}>
-                ← Volver
-              </Button>
-              <Button
-                className="bg-red-700 hover:bg-red-600 text-white"
-                onClick={() => setView("retired")}
-              >
+              <Button variant="outline" onClick={() => setView("hub")}>← Volver</Button>
+              <Button className="bg-red-700 hover:bg-red-600 text-white" onClick={() => setView("retired")}>
                 Confirmar retiro
               </Button>
             </div>
@@ -1759,8 +1751,9 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
       )}
 
       {selectedRival != null && (
-       <RivalModal rival={selectedRival!} onClose={() => setSelectedRival(null)} />
+        <RivalModal rival={selectedRival!} onClose={() => setSelectedRival(null)} />
       )}
-    
+    </div>
+  )
 }
 
