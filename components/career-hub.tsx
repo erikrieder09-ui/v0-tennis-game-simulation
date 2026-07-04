@@ -281,8 +281,11 @@ function buildDraw(
   }
 
   const pool = rivals
-    .filter(r => r.id !== "USER" && r.rank >= rankWindow[0] && r.rank <= rankWindow[1])
+    .filter(r => r.id !== "USER")
     .sort((a, b) => a.rank - b.rank)
+
+  const slotsForRivals = size - (isDirect ? 1 : 0)
+  const field = pool.slice(0, slotsForRivals)
 
   const slotsForRivals = size - (isDirect ? 1 : 0)
   const field = pool.slice(0, slotsForRivals)
