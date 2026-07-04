@@ -145,9 +145,21 @@ function getEligibleRivalsForTournament(
     }
   }
 
-  // Devolver solo los rivales asignados a este torneo específico
-  return allRivals.filter(r => assignedTo[r.id] === t.id)
-}
+ // Devolver los rivales asignados a este torneo específico
+  let assigned = allRivals.filter(r => assignedTo[r.id] === t.id)
+
+  // Si quedaron pocos jugadores, completar con los no asignados más cercanos al rango del torneo
+  const needed = CATEGORY_INFO[t.category].drawSize - 1 // -1 porque el usuario puede ocupar un slot
+  if (assigned.length < needed) {
+    const unassigned = allRivals.filter(r => !assignedTo[r.id])
+    const extras = unassigned
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, needed - assigned.length)
+    assigned = [...assigned, ...extras]
+  }
+
+  return assigned
+  }
 
 /* -------------------------------------------------------------------------- */
 /*  Draw generator (simple bracket)                                            */
