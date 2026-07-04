@@ -8,7 +8,7 @@ import {
   addPointsEntry, recomputePoints, checkAnnualProgression,
   type CareerState, type PointsEntry,
 } from "@/lib/career"
-import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, type Tournament } from "@/lib/calendar"
+import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament } from "@/lib/calendar"
 import { getRankings, evolveRoster } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
@@ -61,6 +61,92 @@ function catBadge(cat: string) {
       {info?.label ?? cat}
     </span>
   )
+}
+
+/**
+ * Dado un torneo y el pool completo de rivales, devuelve los rivales
+ * que realmente participarían en ese torneo, respetando simultaneidad
+ * y probabilidades realistas de participación según ranking/superficie.
+ */
+function getEligibleRivalsForTournament(
+  t: Tournament,
+  allRivals: Rival[],
+  allTournamentsThisWeek: Tournament[]
+): Rival[] {
+  // Hash determinístico simple: convierte string a número
+  function hashStr(s: string): number {
+    let h = 0
+    for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+    return Math.abs(h)
+  }
+
+  // Probabilidad de que un jugador elija este torneo
+  function participationProb(rival: Rival, tournament: Tournament): number {
+    const cat = tournament.category
+    // GS y M1000: casi obligatorio para top rankeados
+    if (cat === "grand-slam" || cat === "masters-1000") {
+      if (rival.rank <= 30) return 0.95
+      if (rival.rank <= 60) return 0.85
+      return 0.7
+    }
+    // 500: opcional, top players van menos seguido
+    if (cat === "atp-500") {
+      let prob = rival.rank <= 5 ? 0.35
+        : rival.rank <= 10 ? 0.50
+        : rival.rank <= 20 ? 0.65
+        : rival.rank <= 50 ? 0.80
+        : 0.90
+      // Bonus por superficie favorita
+      if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.15)
+      return prob
+    }
+    // 250: más participación general
+    if (cat === "atp-250") {
+      let prob = rival.rank <= 5 ? 0.20
+        : rival.rank <= 10 ? 0.35
+        : rival.rank <= 20 ? 0.55
+        : rival.rank <= 50 ? 0.75
+        : 0.90
+      if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.10)
+      return prob
+    }
+    // Challenger: solo jugadores de ranking más bajo
+    if (cat === "challenger") {
+      if (rival.rank <= 50) return 0.05
+      if (rival.rank <= 100) return 0.30
+      return 0.85
+    }
+    // Futures: solo jugadores de ranking muy bajo
+    if (cat === "futures") {
+      if (rival.rank <= 100) return 0.02
+      if (rival.rank <= 150) return 0.20
+      return 0.80
+    }
+    return 0.5
+  }
+
+  // Ordenar torneos de la semana por prioridad
+  const sortedTournaments = [...allTournamentsThisWeek].sort(
+    (a, b) => CATEGORY_PRIORITY[a.category] - CATEGORY_PRIORITY[b.category]
+  )
+
+  // Para cada rival, asignarlo al torneo de mayor prioridad que elegiría jugar
+  const assignedTo: Record<string, string> = {} // rivalId -> tournamentId
+
+  for (const tournament of sortedTournaments) {
+    for (const rival of allRivals) {
+      if (assignedTo[rival.id]) continue // ya asignado a otro torneo esta semana
+      const seed = hashStr(`${tournament.id}-${rival.id}`)
+      const rand = (seed % 1000) / 1000
+      const prob = participationProb(rival, tournament)
+      if (rand < prob) {
+        assignedTo[rival.id] = tournament.id
+      }
+    }
+  }
+
+  // Devolver solo los rivales asignados a este torneo específico
+  return allRivals.filter(r => assignedTo[r.id] === t.id)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -845,8 +931,10 @@ export function CareerHub({ player }: Props) {
   }
 
     if (status.kind === "ineligible") {
-  const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
-  const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+ const allRivals = buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date)
+  const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
+  const tournamentsThisWeek = getTournamentsOnDate(t.date)
+  const rivsForDraw = getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
   let matches = t.category === "atp-finals"
     ? buildRoundRobinDraw(rivsForDraw, userRival, false)
     : buildDraw(t, rivsForDraw, userRival, false)
@@ -876,8 +964,10 @@ export function CareerHub({ player }: Props) {
     setPlayedTournaments(prev => new Set(prev).add(t.id))
     setQualyCompleted(false)
 
-    const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
-    const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
+    const allRivals = buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date)
+  const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
+  const tournamentsThisWeek = getTournamentsOnDate(t.date)
+  const rivsForDraw = getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
 
     let matches: DrawMatch[] = []
 

@@ -385,4 +385,18 @@ export function isOffSeason(date: string): boolean {
   return prev.season !== next.season
 }
 
+/** Devuelve todos los torneos que comienzan en la misma semana que `date`. */
+export function getTournamentsOnDate(date: string): Tournament[] {
+  return getCalendar().filter(t => t.date === date)
+}
 
+/** Orden de prioridad de categorías para distribución de jugadores entre torneos simultáneos. */
+export const CATEGORY_PRIORITY: Record<Category, number> = {
+  "grand-slam":   1,
+  "masters-1000": 2,
+  "atp-500":      3,
+  "atp-250":      4,
+  "challenger":   5,
+  "futures":      6,
+  "atp-finals":   1,
+}
