@@ -9,7 +9,7 @@ import {
   type CareerState, type PointsEntry,
 } from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, type Tournament } from "@/lib/calendar"
-import { getRankings } from "@/lib/rivals"
+import { getRankings, evolveRoster } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
 import { ATTRIBUTE_LABELS } from "@/lib/types"
@@ -19,6 +19,7 @@ import {
   availableAttributePoints, upgradeAttribute,
 } from "@/lib/progression"
 import { computeAttributeCap, computeOverall } from "@/lib/attributes"
+
 
 
 
@@ -1150,9 +1151,15 @@ rivalPalmares: bonusUpdate
         date: addWeeks(prev.date, 1),
         fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
       }
-      // También recalculamos los puntos por si algo salió de la ventana de 52 semanas
       const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
-      return checkAnnualProgression({ ...advanced, points: recalculated })
+      const next = checkAnnualProgression({ ...advanced, points: recalculated })
+
+      // Si hubo progresión anual (la fecha de última progresión cambió), evolucionamos el roster
+      if (next.lastProgressionDate !== prev.lastProgressionDate) {
+        evolveRoster(prev.player.tour, next.date)
+      }
+
+      return next
     })
   }
 
