@@ -73,83 +73,74 @@ function getEligibleRivalsForTournament(
   allRivals: Rival[],
   allTournamentsThisWeek: Tournament[]
 ): Rival[] {
-  // Hash determinístico simple: convierte string a número
   function hashStr(s: string): number {
     let h = 0
     for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
     return Math.abs(h)
   }
 
-  // Probabilidad de que un jugador elija este torneo
-  function participationProb(rival: Rival, tournament: Tournament): number {
-    const cat = tournament.category
-    // GS y M1000: casi obligatorio para top rankeados
-    if (cat === "grand-slam" || cat === "masters-1000") {
-      if (rival.rank <= 30) return 0.95
-      if (rival.rank <= 60) return 0.85
-      return 0.7
-    }
-    // 500: opcional, top players van menos seguido
-    if (cat === "atp-500") {
-      let prob = rival.rank <= 5 ? 0.35
-        : rival.rank <= 10 ? 0.50
-        : rival.rank <= 20 ? 0.65
-        : rival.rank <= 50 ? 0.80
-        : 0.90
-      // Bonus por superficie favorita
-      if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.15)
-      return prob
-    }
-    // 250: más participación general
-    if (cat === "atp-250") {
-      let prob = rival.rank <= 5 ? 0.20
-        : rival.rank <= 10 ? 0.35
-        : rival.rank <= 20 ? 0.55
-        : rival.rank <= 50 ? 0.75
-        : 0.90
-      if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.10)
-      return prob
-    }
-    // Challenger: solo jugadores de ranking más bajo
-    if (cat === "challenger") {
-      if (rival.rank <= 50) return 0.05
-      if (rival.rank <= 100) return 0.30
-      return 0.85
-    }
-    // Futures: solo jugadores de ranking muy bajo
-    if (cat === "futures") {
-      if (rival.rank <= 100) return 0.02
-      if (rival.rank <= 150) return 0.20
-      return 0.80
-    }
-    return 0.5
-  }
-
-  // Ordenar torneos de la semana por prioridad
   const sortedTournaments = [...allTournamentsThisWeek].sort(
-    (a, b) => CATEGORY_PRIORITY[a.category] - CATEGORY_PRIORITY[b.category]
+    (a, b) => CATEGORY_PRIORITY[a.category] - CATEGORY_PRIORITY[b.category] || a.id.localeCompare(b.id)
   )
 
-  // Para cada rival, asignarlo al torneo de mayor prioridad que elegiría jugar
-  const assignedTo: Record<string, string> = {} // rivalId -> tournamentId
+  const assignedTo: Record<string, string> = {}
 
+  // Para GS y M1000: asignar los top rankeados con alta probabilidad
+  // Para torneos de igual categoría: distribuir balanceado usando hash
   for (const tournament of sortedTournaments) {
+    const sameCatTournaments = sortedTournaments.filter(t2 => t2.category === tournament.category)
+    const tournamentIndex = sameCatTournaments.findIndex(t2 => t2.id === tournament.id)
+
     for (const rival of allRivals) {
-      if (assignedTo[rival.id]) continue // ya asignado a otro torneo esta semana
-      const seed = hashStr(`${tournament.id}-${rival.id}`)
-      const rand = (seed % 1000) / 1000
-      const prob = participationProb(rival, tournament)
-      if (rand < prob) {
+      if (assignedTo[rival.id]) continue
+
+      // Si hay múltiples torneos de la misma categoría esta semana,
+      // distribuir balanceado por hash (determinístico)
+      if (sameCatTournaments.length > 1) {
+        const rivalHash = hashStr(`${rival.id}-${t.date}`)
+        const assignedIndex = rivalHash % sameCatTournaments.length
+
+        // ¿Este rival "prefiere" este torneo según el hash?
+        if (assignedIndex !== tournamentIndex) continue
+
+        // Probabilidad adicional: los top players pueden saltarse torneos opcionales
+        const cat = tournament.category
+        if (cat === "atp-500" || cat === "atp-250") {
+          const skipProb = rival.rank <= 5 ? 0.40
+            : rival.rank <= 10 ? 0.25
+            : rival.rank <= 20 ? 0.15
+            : 0.05
+          const skipHash = hashStr(`skip-${tournament.id}-${rival.id}`)
+          const skipRand = (skipHash % 1000) / 1000
+          if (skipRand < skipProb) continue // el jugador decide no jugar esta semana
+        }
+
         assignedTo[rival.id] = tournament.id
+      } else {
+        // Torneo único esta semana: probabilidad normal de participación
+        const cat = tournament.category
+        let prob = 0.8
+        if (cat === "grand-slam" || cat === "masters-1000") {
+          prob = rival.rank <= 30 ? 0.95 : rival.rank <= 60 ? 0.85 : 0.70
+        } else if (cat === "atp-500") {
+          prob = rival.rank <= 5 ? 0.70 : rival.rank <= 20 ? 0.80 : 0.90
+          if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.10)
+        } else if (cat === "challenger") {
+          prob = rival.rank <= 50 ? 0.05 : rival.rank <= 100 ? 0.30 : 0.85
+        } else if (cat === "futures") {
+          prob = rival.rank <= 100 ? 0.02 : rival.rank <= 150 ? 0.20 : 0.80
+        }
+        const seed = hashStr(`${tournament.id}-${rival.id}`)
+        const rand = (seed % 1000) / 1000
+        if (rand < prob) assignedTo[rival.id] = tournament.id
       }
     }
   }
 
- // Devolver los rivales asignados a este torneo específico
   let assigned = allRivals.filter(r => assignedTo[r.id] === t.id)
 
-  // Si quedaron pocos jugadores, completar con los no asignados más cercanos al rango del torneo
-  const needed = CATEGORY_INFO[t.category].drawSize - 1 // -1 porque el usuario puede ocupar un slot
+  // Completar si quedan pocos — tomar no asignados más cercanos en ranking
+  const needed = CATEGORY_INFO[t.category].drawSize - 1
   if (assigned.length < needed) {
     const unassigned = allRivals.filter(r => !assignedTo[r.id])
     const extras = unassigned
@@ -159,7 +150,7 @@ function getEligibleRivalsForTournament(
   }
 
   return assigned
-  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Draw generator (simple bracket)                                            */
