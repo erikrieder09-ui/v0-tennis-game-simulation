@@ -139,14 +139,23 @@ function getEligibleRivalsForTournament(
 
   let assigned = allRivals.filter(r => assignedTo[r.id] === t.id)
 
-  // Completar si quedan pocos — tomar no asignados más cercanos en ranking
-  const needed = CATEGORY_INFO[t.category].drawSize - 1
+  // Garantizar que haya suficientes jugadores para llenar el draw
+  const needed = CATEGORY_INFO[t.category].drawSize + 10 // margen extra
   if (assigned.length < needed) {
     const unassigned = allRivals.filter(r => !assignedTo[r.id])
     const extras = unassigned
       .sort((a, b) => a.rank - b.rank)
       .slice(0, needed - assigned.length)
     assigned = [...assigned, ...extras]
+  }
+
+  // Si aún faltan, tomar cualquier rival del pool general
+  if (assigned.length < CATEGORY_INFO[t.category].drawSize) {
+    const assignedIds = new Set(assigned.map(r => r.id))
+    const remaining = allRivals
+      .filter(r => !assignedIds.has(r.id))
+      .sort((a, b) => a.rank - b.rank)
+    assigned = [...assigned, ...remaining]
   }
 
   return assigned
