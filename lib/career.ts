@@ -100,6 +100,8 @@ export interface CareerState {
   lastProgressionDate: string
    /** palmarés de rivales CPU: rivalId → lista de nombres de torneos ganados */
   rivalPalmares: Record<string, string[]>
+  /** estado de la Copa Davis del año en curso */
+  davisCup: import("./davis-cup").DavisCupState | null
 }
 
  
@@ -148,12 +150,13 @@ export function createCareer(player: PlayerProfile): CareerState {
     rivalBonusHistory: {},
     level: 1,
     xp: 0,
-    spentAttributePoints: -5, // negativo = puntos de regalo extra sumados a los del nivel
+    spentAttributePoints: -5,
     capBreakers: {},
     lastProgressionDate: SEASON_START,
     rivalPalmares: {},
+    davisCup: null,
   }
-}
+ }
  
 /* -------------------------------------------------------------------------- */
 /*  Ranking with the player inserted by POINTS                                 */
