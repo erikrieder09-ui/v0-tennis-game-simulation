@@ -189,9 +189,7 @@ const FIXED_RETIREMENTS: Record<string, string> = {
 
 function makeRival(seed: Seed, tour: Tour, rand: () => number, id: string): Rival {
   const retirementDate = FIXED_RETIREMENTS[seed.last] ?? computeRetirementDate(seed.age, rand)
-  if (seed.last === "Wawrinka" || seed.last === "Monfils") {
-    console.log("DEBUG retirement:", seed.last, retirementDate)
-  }
+
   return {
     id,
     tour,
