@@ -1662,7 +1662,7 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
   const minDateLabel = ["febrero", "julio", "septiembre", "noviembre"][roundIdx]
   return playable ? (
     <Button className="w-full mt-3" variant="outline" onClick={() => {
-                        const simulatedRound = round.map(s => simulateDavisSeries(s))
+                        const simulatedRound = round.map(s => simulateDavisSeries(s, career.davisCup?.userAccepted ? "USER" : ""))
                         const newRounds = [...career.davisCup!.rounds]
                         newRounds[roundIdx] = simulatedRound
 

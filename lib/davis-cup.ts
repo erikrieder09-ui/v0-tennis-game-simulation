@@ -195,7 +195,7 @@ export function simulateDavisMatch(
 /*  Simular una serie completa (CPU vs CPU)                                   */
 /* -------------------------------------------------------------------------- */
 
-export function simulateDavisSeries(series: DavisSeries): DavisSeries {
+export function simulateDavisSeries(series: DavisSeries, userId: string = "USER"): DavisSeries {
   const { home, away, surface } = series
   const HOME_BONUS = 3 // bonus de localía
 
@@ -230,6 +230,24 @@ export function simulateDavisSeries(series: DavisSeries): DavisSeries {
         winner: null,
         score: null,
         isUser: false,
+      })
+      continue
+    }
+
+    const isUserMatch = mu.p1.id === userId || mu.p2.id === userId
+
+    if (isUserMatch) {
+      // No simular — dejar pendiente para que el usuario lo juegue
+      matches.push({
+        id: `${series.id}-${mu.id}`,
+        type: mu.id,
+        homePlayer1: mu.p1,
+        homePlayer2: null,
+        awayPlayer1: mu.p2,
+        awayPlayer2: null,
+        winner: null,
+        score: null,
+        isUser: true,
       })
       continue
     }
