@@ -1457,6 +1457,161 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
 </div>
       )}
 
+      {/* DAVIS CUP */}
+      {view === "davis" && (
+        <div className="space-y-4">
+          <div className="text-sm font-bold text-zinc-400 mb-3">🏆 COPA DAVIS</div>
+
+          {!career.davisCup ? (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center space-y-3">
+              <div className="text-zinc-400 text-sm">No hay Copa Davis iniciada para este año.</div>
+              <Button onClick={() => {
+                const year = new Date(career.date).getFullYear()
+                const dc = initDavisCup(year, career.date, career.player.nationality)
+                const invitation = checkUserInvitation(
+                  career.player.nationality,
+                  playerRank,
+                  computeOverall(career.player.attributes, career.player.playStyle),
+                  dc.teams
+                )
+                setCareer(prev => ({
+                  ...prev,
+                  davisCup: { ...dc, userInvited: invitation.invited },
+                  log: invitation.invited
+                    ? [...prev.log, `🎾 ¡El capitán te convocó a la Copa Davis ${year}!`]
+                    : [...prev.log, `📋 No fuiste convocado a la Copa Davis ${year}.`],
+                }))
+              }}>
+                Iniciar Copa Davis {new Date(career.date).getFullYear()}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Convocatoria */}
+              {career.davisCup.userInvited && !career.davisCup.userAccepted && (
+                <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4 space-y-3">
+                  <div className="font-bold text-blue-300">🎾 ¡Fuiste convocado a la Copa Davis!</div>
+                  <div className="text-sm text-zinc-400">
+                    El capitán de {career.davisCup.userCountry} te llama a representar a tu país.
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={() => setCareer(prev => ({
+                      ...prev,
+                      davisCup: prev.davisCup ? { ...prev.davisCup, userAccepted: true } : null,
+                      log: [...prev.log, "✅ Aceptaste la convocatoria de la Copa Davis."],
+                    }))}>
+                      ✅ Aceptar convocatoria
+                    </Button>
+                    <Button variant="outline" onClick={() => setCareer(prev => ({
+                      ...prev,
+                      davisCup: prev.davisCup ? { ...prev.davisCup, userInvited: false } : null,
+                      log: [...prev.log, "❌ Rechazaste la convocatoria de la Copa Davis."],
+                    }))}>
+                      ❌ Rechazar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Equipos participantes */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div className="text-xs font-bold text-zinc-400 mb-3">EQUIPOS PARTICIPANTES</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {career.davisCup.teams.map(team => (
+                    <div key={team.country} className={`text-center p-2 rounded-lg border text-xs
+                      ${team.country === career.davisCup!.userCountry
+                        ? "border-yellow-500/50 bg-yellow-500/5 text-yellow-300"
+                        : "border-zinc-700 bg-zinc-800 text-zinc-300"}`}>
+                      <div className="font-bold">{team.country}</div>
+                      <div className="text-zinc-500 text-[10px]">{team.captain}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rondas */}
+              {career.davisCup.rounds.map((round, roundIdx) => (
+                round.length > 0 && (
+                  <div key={roundIdx} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div className="text-xs font-bold text-zinc-400 mb-3">
+                      {roundIdx === 0 ? "CUARTOS DE FINAL" : roundIdx === 1 ? "SEMIFINALES" : "FINAL"}
+                    </div>
+                    <div className="space-y-2">
+                      {round.map(series => (
+                        <div key={series.id} className={`border rounded-lg p-3 text-sm
+                          ${series.home.country === career.davisCup!.userCountry || series.away.country === career.davisCup!.userCountry
+                            ? "border-yellow-500/30 bg-yellow-500/5"
+                            : "border-zinc-700 bg-zinc-800"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold">{series.home.country} vs {series.away.country}</div>
+                            <div className="text-xs text-zinc-500">{series.surface}</div>
+                          </div>
+                          {series.winner ? (
+                            <div className="text-xs mt-1">
+                              <span className="text-green-400">✅ {series.winner === "home" ? series.home.country : series.away.country}</span>
+                              <span className="text-zinc-500 ml-2">{series.homeWins}-{series.awayWins}</span>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-zinc-500 mt-1">Pendiente</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Simular ronda */}
+                    {round.every(s => !s.winner) && (
+                      <Button className="w-full mt-3" variant="outline" onClick={() => {
+                        const simulatedRound = round.map(s => simulateDavisSeries(s))
+                        const newRounds = [...career.davisCup!.rounds]
+                        newRounds[roundIdx] = simulatedRound
+
+                        // Si hay siguiente ronda vacía, generarla
+                        if (roundIdx < 2 && newRounds[roundIdx + 1].length === 0) {
+                          newRounds[roundIdx + 1] = advanceDavisRound(simulatedRound, roundIdx + 2, career.davisCup!.year)
+                        }
+
+                        const completed = roundIdx === 2
+                        const champion = completed
+                          ? (simulatedRound[0].winner === "home" ? simulatedRound[0].home.country : simulatedRound[0].away.country)
+                          : null
+
+                        setCareer(prev => ({
+                          ...prev,
+                          davisCup: prev.davisCup ? {
+                            ...prev.davisCup,
+                            rounds: newRounds,
+                            completed,
+                          } : null,
+                          log: champion
+                            ? [...prev.log, `🏆 ¡${champion} ganó la Copa Davis ${prev.davisCup?.year}!`]
+                            : prev.log,
+                        }))
+                      }}>
+                        ▶ Simular {roundIdx === 0 ? "Cuartos" : roundIdx === 1 ? "Semifinales" : "Final"}
+                      </Button>
+                    )}
+                  </div>
+                )
+              ))}
+
+              {/* Campeón */}
+              {career.davisCup.completed && (() => {
+                const finalRound = career.davisCup.rounds[2]
+                const champion = finalRound[0]?.winner === "home"
+                  ? finalRound[0].home.country
+                  : finalRound[0]?.away.country
+                return (
+                  <div className="bg-yellow-500/10 border border-yellow-600 rounded-xl p-4 text-center">
+                    <div className="text-xl">🏆</div>
+                    <div className="font-bold text-yellow-300">¡{champion} ganó la Copa Davis {career.davisCup.year}!</div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* HUB */}
       {view === "hub" && (
         <div className="space-y-4">
@@ -1839,4 +1994,6 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
     </div>
   )
 }
+
+
 
