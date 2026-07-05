@@ -139,21 +139,35 @@ function getEligibleRivalsForTournament(
 
   let assigned = allRivals.filter(r => assignedTo[r.id] === t.id)
 
-  // Garantizar que haya suficientes jugadores para llenar el draw
-  const needed = CATEGORY_INFO[t.category].drawSize + 10 // margen extra
+  // Rango de ranking apropiado para cada categoría (para el fallback)
+  const rankRange: [number, number] = 
+    t.category === "grand-slam" ? [1, 200] :
+    t.category === "masters-1000" ? [1, 100] :
+    t.category === "atp-500" ? [1, 80] :
+    t.category === "atp-250" ? [10, 150] :
+    t.category === "challenger" ? [60, 249] :
+    t.category === "futures" ? [120, 249] :
+    [1, 249]
+
+  // Completar con no asignados dentro del rango apropiado
+  const needed = CATEGORY_INFO[t.category].drawSize + 10
   if (assigned.length < needed) {
-    const unassigned = allRivals.filter(r => !assignedTo[r.id])
+    const unassigned = allRivals.filter(r =>
+      !assignedTo[r.id] &&
+      r.rank >= rankRange[0] &&
+      r.rank <= rankRange[1]
+    )
     const extras = unassigned
       .sort((a, b) => a.rank - b.rank)
       .slice(0, needed - assigned.length)
     assigned = [...assigned, ...extras]
   }
 
-  // Si aún faltan, tomar cualquier rival del pool general
+  // Último recurso: si aún faltan, ampliar el rango pero seguir sin top players en torneos bajos
   if (assigned.length < CATEGORY_INFO[t.category].drawSize) {
     const assignedIds = new Set(assigned.map(r => r.id))
     const remaining = allRivals
-      .filter(r => !assignedIds.has(r.id))
+      .filter(r => !assignedIds.has(r.id) && r.rank >= rankRange[0])
       .sort((a, b) => a.rank - b.rank)
     assigned = [...assigned, ...remaining]
   }
