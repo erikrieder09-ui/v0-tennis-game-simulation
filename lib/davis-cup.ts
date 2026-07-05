@@ -118,8 +118,11 @@ export function drawDavisCup(teams: DavisTeam[], year: number): DavisSeries[][] 
   const SURFACES: ("hard" | "clay" | "grass")[] = ["hard", "clay", "grass"]
 
   function makeSeries(home: DavisTeam, away: DavisTeam, round: number, index: number): DavisSeries {
-    // Local elige superficie
-    const surface = SURFACES[Math.floor(rand() * SURFACES.length)]
+    const captainFavSurface = home.players[0]?.favSurface
+    const surface: "hard" | "clay" | "grass" =
+      (captainFavSurface === "hard" || captainFavSurface === "clay" || captainFavSurface === "grass")
+        ? captainFavSurface
+        : SURFACES[Math.floor(rand() * SURFACES.length)]
     return {
       id: `davis-${year}-r${round}-${index}`,
       round,
@@ -133,13 +136,13 @@ export function drawDavisCup(teams: DavisTeam[], year: number): DavisSeries[][] 
     }
   }
 
-  // Cuartos de final (8 series, 16 equipos)
-  const quarterfinals: DavisSeries[] = []
+  // Octavos de final (8 series, 16 equipos) — febrero
+  const roundOf16: DavisSeries[] = []
   for (let i = 0; i < 8; i++) {
-    quarterfinals.push(makeSeries(shuffled[i * 2], shuffled[i * 2 + 1], 1, i))
+    roundOf16.push(makeSeries(shuffled[i * 2], shuffled[i * 2 + 1], 1, i))
   }
 
-  return [quarterfinals, [], []]
+  return [roundOf16, [], [], []] // 4 rondas: octavos, cuartos, semis, final
 }
 
 /* -------------------------------------------------------------------------- */

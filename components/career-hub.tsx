@@ -1534,7 +1534,7 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                 round.length > 0 && (
                   <div key={roundIdx} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                     <div className="text-xs font-bold text-zinc-400 mb-3">
-                      {roundIdx === 0 ? "CUARTOS DE FINAL" : roundIdx === 1 ? "SEMIFINALES" : "FINAL"}
+                      {roundIdx === 0 ? "OCTAVOS DE FINAL" : roundIdx === 1 ? "CUARTOS DE FINAL" : roundIdx === 2 ? "SEMIFINALES" : "FINAL"}
                     </div>
                     <div className="space-y-2">
                       {round.map(series => (
@@ -1566,11 +1566,11 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                         newRounds[roundIdx] = simulatedRound
 
                         // Si hay siguiente ronda vacía, generarla
-                        if (roundIdx < 2 && newRounds[roundIdx + 1].length === 0) {
+                        if (roundIdx < 3 && newRounds[roundIdx + 1].length === 0) {
                           newRounds[roundIdx + 1] = advanceDavisRound(simulatedRound, roundIdx + 2, career.davisCup!.year)
                         }
 
-                        const completed = roundIdx === 2
+                        const completed = roundIdx === 3
                         const champion = completed
                           ? (simulatedRound[0].winner === "home" ? simulatedRound[0].home.country : simulatedRound[0].away.country)
                           : null
@@ -1587,7 +1587,7 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                             : prev.log,
                         }))
                       }}>
-                        ▶ Simular {roundIdx === 0 ? "Cuartos" : roundIdx === 1 ? "Semifinales" : "Final"}
+                       ▶ Simular {roundIdx === 0 ? "Octavos" : roundIdx === 1 ? "Cuartos" : roundIdx === 2 ? "Semifinales" : "Final"}
                       </Button>
                     )}
                   </div>
@@ -1596,7 +1596,7 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
 
               {/* Campeón */}
               {career.davisCup.completed && (() => {
-                const finalRound = career.davisCup.rounds[2]
+                const finalRound = career.davisCup.rounds[3]
                 const champion = finalRound[0]?.winner === "home"
                   ? finalRound[0].home.country
                   : finalRound[0]?.away.country
