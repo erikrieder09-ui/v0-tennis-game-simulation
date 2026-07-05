@@ -233,59 +233,9 @@ function buildDraw(
   const info = CATEGORY_INFO[t.category]
   const size = overrideDrawSize ?? info.drawSize
 
-  let rankWindow: [number, number]
-  switch (t.category) {
-  case "grand-slam":
-    rankWindow = [1, 128]
-    break
-
-  case "masters-1000":
-    rankWindow = [1, 75]
-    break
-
-  case "atp-500":
-    rankWindow = [1, 60]
-    break
-
-  case "atp-250":
-    rankWindow = [15, 110]
-    break
-
-  case "challenger":
-    rankWindow = [80, 249]
-    break
-
-  case "futures":
-    rankWindow = [150, 249]
-    break
-
-  case "atp-finals":
-    rankWindow = [1, 8]
-    break
-
-  default:
-    rankWindow = [1, 200]
-}
-
-  const slotsNeeded = (overrideDrawSize ?? CATEGORY_INFO[t.category].drawSize) - (isDirect ? 1 : 0)
-  const availableInWindow = rivals.filter(
-    r => r.id !== "USER" && r.rank >= rankWindow[0] && r.rank <= rankWindow[1]
-  ).length
-
-  if (availableInWindow < slotsNeeded) {
-    rankWindow = [Math.max(1, rankWindow[1] - slotsNeeded - (slotsNeeded - availableInWindow)), rankWindow[1]]
-  }
-
-  if (isDirect && userRival.rank > rankWindow[1]) {
-    rankWindow = [rankWindow[0], userRival.rank]
-  }
-
   const pool = rivals
     .filter(r => r.id !== "USER")
     .sort((a, b) => a.rank - b.rank)
-
-  const slotsForRivals = size - (isDirect ? 1 : 0)
-  const field = pool.slice(0, slotsForRivals)
 
   const slotsForRivals = size - (isDirect ? 1 : 0)
   const field = pool.slice(0, slotsForRivals)
