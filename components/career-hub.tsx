@@ -1228,6 +1228,13 @@ rivalPalmares: bonusUpdate
       const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
       const next = checkAnnualProgression({ ...advanced, points: recalculated })
 
+      // Resetear Copa Davis al inicio de cada año nuevo
+      const prevYear = new Date(prev.date).getFullYear()
+      const nextYear = new Date(next.date).getFullYear()
+      if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
+        return { ...next, davisCup: null }
+      }
+
       // Si hubo progresión anual (la fecha de última progresión cambió), evolucionamos el roster
       if (next.lastProgressionDate !== prev.lastProgressionDate) {
         evolveRoster(prev.player.tour, next.date)
@@ -1496,11 +1503,38 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                     El capitán de {career.davisCup.userCountry} te llama a representar a tu país.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button onClick={() => setCareer(prev => ({
-                      ...prev,
-                      davisCup: prev.davisCup ? { ...prev.davisCup, userAccepted: true } : null,
-                      log: [...prev.log, "✅ Aceptaste la convocatoria de la Copa Davis."],
-                    }))}>
+                    <Button onClick={() => {
+                      if (!career.davisCup) return
+                      const dc = career.davisCup
+                      // Insertar al usuario en el equipo de su país
+                      const updatedTeams = dc.teams.map(team => {
+                        if (team.country !== dc.userCountry) return team
+                        const invitation = checkUserInvitation(dc.userCountry, playerRank, computeOverall(career.player.attributes, career.player.playStyle), dc.teams)
+                        if (!invitation.invited) return team
+                        const newPlayers = [...team.players]
+                        newPlayers[invitation.position] = userRival
+                        return { ...team, players: newPlayers }
+                      })
+                      // Actualizar también los draws ya generados con el equipo actualizado
+                      const updatedRounds = dc.rounds.map(round =>
+                        round.map(series => {
+                          if (series.home.country === dc.userCountry) {
+                            const updatedTeam = updatedTeams.find(t => t.country === dc.userCountry)!
+                            return { ...series, home: updatedTeam }
+                          }
+                          if (series.away.country === dc.userCountry) {
+                            const updatedTeam = updatedTeams.find(t => t.country === dc.userCountry)!
+                            return { ...series, away: updatedTeam }
+                          }
+                          return series
+                        })
+                      )
+                      setCareer(prev => ({
+                        ...prev,
+                        davisCup: { ...dc, userAccepted: true, teams: updatedTeams, rounds: updatedRounds },
+                        log: [...prev.log, "✅ Aceptaste la convocatoria de la Copa Davis."],
+                      }))
+                    }}>
                       ✅ Aceptar convocatoria
                     </Button>
                     <Button variant="outline" onClick={() => setCareer(prev => ({
