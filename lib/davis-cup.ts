@@ -350,3 +350,15 @@ export function checkUserInvitation(
 
   return { invited: false, position: -1, replacedPlayer: null }
 }
+
+const DAVIS_ROUND_DATES: Record<number, string> = {
+  0: "-02-01",  // Octavos — febrero
+  1: "-07-01",  // Cuartos — julio  
+  2: "-09-01",  // Semifinales — septiembre
+  3: "-11-01",  // Final — noviembre
+}
+
+export function isDavisRoundPlayable(round: number, year: number, currentDate: string): boolean {
+  const minDate = `${year}${DAVIS_ROUND_DATES[round]}`
+  return currentDate >= minDate
+}

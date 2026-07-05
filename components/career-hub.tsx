@@ -21,8 +21,9 @@ import {
 import { computeAttributeCap, computeOverall } from "@/lib/attributes"
 import {
   initDavisCup, simulateDavisSeries, advanceDavisRound,
-  checkUserInvitation, type DavisCupState, type DavisSeries,
+  checkUserInvitation, isDavisRoundPlayable, type DavisCupState, type DavisSeries,
 } from "@/lib/davis-cup"
+
 
 
 
@@ -1559,8 +1560,11 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                     </div>
 
                     {/* Simular ronda */}
-                    {round.every(s => !s.winner) && (
-                      <Button className="w-full mt-3" variant="outline" onClick={() => {
+                    {round.every(s => !s.winner) && (() => {
+  const playable = isDavisRoundPlayable(roundIdx, career.davisCup!.year, career.date)
+  const minDateLabel = ["febrero", "julio", "septiembre", "noviembre"][roundIdx]
+  return playable ? (
+    <Button className="w-full mt-3" variant="outline" onClick={() => {
                         const simulatedRound = round.map(s => simulateDavisSeries(s))
                         const newRounds = [...career.davisCup!.rounds]
                         newRounds[roundIdx] = simulatedRound
@@ -1589,7 +1593,13 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                       }}>
                        ▶ Simular {roundIdx === 0 ? "Octavos" : roundIdx === 1 ? "Cuartos" : roundIdx === 2 ? "Semifinales" : "Final"}
                       </Button>
-                    )}
+  ) : (
+    <div className="text-xs text-zinc-500 text-center mt-3">
+      🔒 Disponible en {minDateLabel} {career.davisCup!.year}
+    </div>
+  )
+})()}
+                    )
                   </div>
                 )
               ))}
