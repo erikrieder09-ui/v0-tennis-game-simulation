@@ -19,6 +19,10 @@ import {
   availableAttributePoints, upgradeAttribute,
 } from "@/lib/progression"
 import { computeAttributeCap, computeOverall } from "@/lib/attributes"
+import {
+  initDavisCup, simulateDavisSeries, advanceDavisRound,
+  checkUserInvitation, type DavisCupState, type DavisSeries,
+} from "@/lib/davis-cup"
 
 
 
@@ -848,7 +852,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" 
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis"
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => createCareer(player))
@@ -1447,7 +1451,10 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
           <Button size="sm" variant="outline" className="text-red-400 border-red-800 hover:bg-red-900/30" onClick={() => setView("retire")}>
             🚪 Retirarse
           </Button>
-        </div>
+        <Button size="sm" variant={view === "davis" ? "default" : "outline"} onClick={() => setView("davis")}>
+  🏆 Copa Davis
+</Button>
+</div>
       )}
 
       {/* HUB */}
