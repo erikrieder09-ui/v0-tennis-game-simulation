@@ -853,7 +853,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis"
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis" | "davis-match"  
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => createCareer(player))
@@ -867,6 +867,8 @@ export function CareerHub({ player }: Props) {
   const [qualyCompleted, setQualyCompleted] = useState(false)
   const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
   const [selectedRival, setSelectedRival] = useState<Rival | null>(null)
+  const [activeDavisSeries, setActiveDavisSeries] = useState<DavisSeries | null>(null)
+const [activeDavisMatchType, setActiveDavisMatchType] = useState<string | null>(null)
 
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
@@ -1587,8 +1589,41 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                               <span className="text-zinc-500 ml-2">{series.homeWins}-{series.awayWins}</span>
                             </div>
                           ) : (
-                            <div className="text-xs text-zinc-500 mt-1">Pendiente</div>
+                            <div className="text-xs text-zinc-500 mt-1">
+                              {series.homeWins > 0 || series.awayWins > 0
+                                ? `${series.home.country} ${series.homeWins} - ${series.awayWins} ${series.away.country}`
+                                : "Pendiente"}
+                            </div>
                           )}
+                          {/* Botón jugar si el usuario participa en esta serie */}
+                          {career.davisCup?.userAccepted && !series.winner && (() => {
+                            const userCountry = career.davisCup!.userCountry
+                            const userIsHome = series.home.country === userCountry
+                            const userIsAway = series.away.country === userCountry
+                            if (!userIsHome && !userIsAway) return null
+
+                            // Buscar el primer partido pendiente del usuario
+                            const TYPE_LABELS: Record<string, string> = {
+                              single1: "Singles 1", single2: "Singles 2",
+                              doubles: "Dobles", single3: "Singles 3", single4: "Singles 4"
+                            }
+                            const pendingUserMatch = series.matches.find(m => m.isUser && !m.winner)
+                            if (!pendingUserMatch) return null
+
+                            return (
+                              <Button
+                                size="sm"
+                                className="mt-2 w-full"
+                                onClick={() => {
+                                  setActiveDavisSeries(series)
+                                  setActiveDavisMatchType(pendingUserMatch.type)
+                                  setView("davis-match")
+                                }}
+                              >
+                                ▶ Jugar {TYPE_LABELS[pendingUserMatch.type]}
+                              </Button>
+                            )
+                          })()}
                           {series.matches.filter(m => m.winner).length > 0 && (
                             <div className="mt-2 space-y-1">
                               {series.matches.map((m, mi) => {
@@ -1683,6 +1718,119 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
           )}
         </div>
       )}
+
+      {/* DAVIS MATCH */}
+      {view === "davis-match" && activeDavisSeries && activeDavisMatchType && (() => {
+        const series = activeDavisSeries
+        const userCountry = career.davisCup!.userCountry
+        const userIsHome = series.home.country === userCountry
+        const team = userIsHome ? series.home : series.away
+        const rival = userIsHome ? series.away : series.home
+
+        // Determinar jugadores del partido
+        const userPlayer = userRival
+        const s1 = team.players[0]
+        const s2 = team.players[1]
+        const rs1 = rival.players[0]
+        const rs2 = rival.players[1]
+
+        let p1: Rival | null = null
+        let p2: Rival | null = null
+
+        if (activeDavisMatchType === "single1") { p1 = userIsHome ? s1 : rs1; p2 = userIsHome ? rs1 : s1 }
+        else if (activeDavisMatchType === "single2") { p1 = userIsHome ? s2 : rs2; p2 = userIsHome ? rs2 : s2 }
+        else if (activeDavisMatchType === "doubles") { p1 = userIsHome ? s1 : rs1; p2 = userIsHome ? rs1 : s1 }
+        else if (activeDavisMatchType === "single3") { p1 = userIsHome ? s1 : rs2; p2 = userIsHome ? rs2 : s1 }
+        else if (activeDavisMatchType === "single4") { p1 = userIsHome ? s2 : rs1; p2 = userIsHome ? rs1 : s2 }
+
+        // Reemplazar al jugador del equipo por el usuario si corresponde
+        if (p1 && p1.id !== "USER") { if (userIsHome && (activeDavisMatchType === "single1" || activeDavisMatchType === "single3" || activeDavisMatchType === "doubles")) p1 = userPlayer }
+        if (p2 && p2.id !== "USER") { if (!userIsHome && (activeDavisMatchType === "single1" || activeDavisMatchType === "single3" || activeDavisMatchType === "doubles")) p2 = userPlayer }
+
+        if (!p1 || !p2) return null
+
+        const userIs: 1 | 2 = p1.id === "USER" ? 1 : 2
+        const TYPE_LABELS: Record<string, string> = {
+          single1: "Singles 1", single2: "Singles 2",
+          doubles: "Dobles", single3: "Singles 3", single4: "Singles 4"
+        }
+
+        const config: MatchConfig = {
+          player1: p1, player2: p2,
+          surface: series.surface as any,
+          bestOf: 5,
+          finalSetTiebreak: false,
+          finalSetTiebreakAt: 7,
+        }
+
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => { setActiveDavisSeries(null); setActiveDavisMatchType(null); setView("davis") }}>← Volver</Button>
+              <div>
+                <div className="font-bold">Copa Davis {career.davisCup!.year}</div>
+                <div className="text-xs text-zinc-500">{TYPE_LABELS[activeDavisMatchType]} · {series.home.country} vs {series.away.country}</div>
+              </div>
+            </div>
+
+            {/* Banner de la serie */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center justify-between">
+              <div className="text-center">
+                <div className={`font-bold text-lg ${userIsHome ? "text-yellow-300" : "text-zinc-200"}`}>{series.home.country}</div>
+                <div className="text-xs text-zinc-500">Local · {series.surface}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono">{series.homeWins} - {series.awayWins}</div>
+                <div className="text-xs text-zinc-500">{TYPE_LABELS[activeDavisMatchType]}</div>
+              </div>
+              <div className="text-center">
+                <div className={`font-bold text-lg ${!userIsHome ? "text-yellow-300" : "text-zinc-200"}`}>{series.away.country}</div>
+                <div className="text-xs text-zinc-500">Visitante</div>
+              </div>
+            </div>
+
+            <MatchSimUI
+              config={config}
+              userIs={userIs}
+              onEnd={(matchState) => {
+                const userWon = matchState.winner === userIs
+                const score = formatMatchScore(matchState, userIs)
+
+                // Actualizar la serie con el resultado
+                const updatedRounds = career.davisCup!.rounds.map(round =>
+                  round.map(s => {
+                    if (s.id !== series.id) return s
+                    const updatedMatches = s.matches.map(m => {
+                      if (m.type !== activeDavisMatchType || m.winner) return m
+                      const homeWon = (userIsHome && userWon) || (!userIsHome && !userWon)
+                      return { ...m, winner: homeWon ? "home" as const : "away" as const, score }
+                    })
+                    const newHomeWins = updatedMatches.filter(m => m.winner === "home").length
+                    const newAwayWins = updatedMatches.filter(m => m.winner === "away").length
+                    const seriesWinner = newHomeWins >= 3 ? "home" as const : newAwayWins >= 3 ? "away" as const : null
+                    return { ...s, matches: updatedMatches, homeWins: newHomeWins, awayWins: newAwayWins, winner: seriesWinner }
+                  })
+                )
+
+                setCareer(prev => ({
+                  ...prev,
+                  davisCup: prev.davisCup ? { ...prev.davisCup, rounds: updatedRounds } : null,
+                  matchesWon: prev.matchesWon + (userWon ? 1 : 0),
+                  matchesLost: prev.matchesLost + (userWon ? 0 : 1),
+                  log: [...prev.log, userWon
+                    ? `✅ Victoria en Copa Davis (${TYPE_LABELS[activeDavisMatchType!]}): ${series.home.country} vs ${series.away.country}`
+                    : `❌ Derrota en Copa Davis (${TYPE_LABELS[activeDavisMatchType!]}): ${series.home.country} vs ${series.away.country}`
+                  ],
+                }))
+
+                setActiveDavisSeries(null)
+                setActiveDavisMatchType(null)
+                setView("davis")
+              }}
+            />
+          </div>
+        )
+      })()}
 
       {/* HUB */}
       {view === "hub" && (
