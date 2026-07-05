@@ -1573,7 +1573,9 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                                   <div key={mi} className="text-[10px] flex justify-between items-center">
                                     <span className="text-zinc-500">{TYPE_LABELS[m.type]}</span>
                                     <span className={homeWon ? "text-green-400" : "text-zinc-400"}>
-                                      {homeWon ? series.home.country : series.away.country}
+                                      {homeWon
+                                        ? `${m.homePlayer1?.firstName[0]}. ${m.homePlayer1?.lastName}`
+                                        : `${m.awayPlayer1?.firstName[0]}. ${m.awayPlayer1?.lastName}`}
                                     </span>
                                     <span className="text-zinc-600 font-mono">{m.score}</span>
                                   </div>
