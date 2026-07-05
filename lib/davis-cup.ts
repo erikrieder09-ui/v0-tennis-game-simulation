@@ -315,3 +315,35 @@ export function initDavisCup(year: number, currentDate: string, userCountry: str
     completed: false,
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Convocatoria del usuario                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Verifica si el usuario merece ser convocado al equipo de su país.
+ * El usuario entra si está entre los top 4 de su nación en el ranking.
+ */
+export function checkUserInvitation(
+  userCountry: string,
+  userRank: number,
+  userOverall: number,
+  teams: DavisTeam[]
+): { invited: boolean; position: number; replacedPlayer: Rival | null } {
+  const team = teams.find(t => t.country === userCountry)
+  if (!team) return { invited: false, position: -1, replacedPlayer: null }
+
+  // Ver si el usuario es mejor que alguno de los 4 del equipo
+  const players = team.players
+  const worstInTeam = players[players.length - 1]
+
+  if (!worstInTeam || players.length < 4) {
+    return { invited: true, position: players.length, replacedPlayer: null }
+  }
+
+  if (userRank < worstInTeam.rank) {
+    return { invited: true, position: players.length - 1, replacedPlayer: worstInTeam }
+  }
+
+  return { invited: false, position: -1, replacedPlayer: null }
+}
