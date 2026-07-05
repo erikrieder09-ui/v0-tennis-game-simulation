@@ -1555,6 +1555,32 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
                           ) : (
                             <div className="text-xs text-zinc-500 mt-1">Pendiente</div>
                           )}
+                          {series.matches.filter(m => m.winner).length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {series.matches.map((m, mi) => {
+                                const TYPE_LABELS: Record<string, string> = {
+                                  single1: "Singles 1", single2: "Singles 2",
+                                  doubles: "Dobles", single3: "Singles 3", single4: "Singles 4"
+                                }
+                                if (!m.winner) return (
+                                  <div key={mi} className="text-[10px] text-zinc-600 flex justify-between">
+                                    <span>{TYPE_LABELS[m.type]}</span>
+                                    <span>—</span>
+                                  </div>
+                                )
+                                const homeWon = m.winner === "home"
+                                return (
+                                  <div key={mi} className="text-[10px] flex justify-between items-center">
+                                    <span className="text-zinc-500">{TYPE_LABELS[m.type]}</span>
+                                    <span className={homeWon ? "text-green-400" : "text-zinc-400"}>
+                                      {homeWon ? series.home.country : series.away.country}
+                                    </span>
+                                    <span className="text-zinc-600 font-mono">{m.score}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
