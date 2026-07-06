@@ -199,6 +199,7 @@ export function simulateDavisSeries(series: DavisSeries, userId: string = "USER"
   const { home, away, surface } = series
   const HOME_BONUS = 3 // bonus de localía
 
+  // Tomar los primeros 2 jugadores de cada equipo (el usuario ya fue insertado en la posición correcta)
   const homeS1 = home.players[0]
   const homeS2 = home.players[1]
   const awayS1 = away.players[0]
@@ -363,7 +364,9 @@ export function checkUserInvitation(
   }
 
   if (userRank < worstInTeam.rank) {
-    return { invited: true, position: players.length - 1, replacedPlayer: worstInTeam }
+    // Insertar en la posición correcta según ranking (máximo posición 1 para que juegue S1 o S2)
+    const position = Math.min(players.length - 1, 1)
+    return { invited: true, position, replacedPlayer: players[position] }
   }
 
   return { invited: false, position: -1, replacedPlayer: null }
