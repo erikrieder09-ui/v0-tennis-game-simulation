@@ -128,12 +128,17 @@ function getEligibleRivalsForTournament(
         if (cat === "grand-slam" || cat === "masters-1000") {
           prob = rival.rank <= 30 ? 0.95 : rival.rank <= 60 ? 0.85 : 0.70
         } else if (cat === "atp-500") {
-          prob = rival.rank <= 5 ? 0.70 : rival.rank <= 20 ? 0.80 : 0.90
+          // Top 5 raramente juegan 500s salvo superficie favorita
+          prob = rival.rank <= 5 ? 0.35 : rival.rank <= 10 ? 0.55 : rival.rank <= 20 ? 0.75 : rival.rank <= 50 ? 0.88 : 0.92
+          if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.20)
+        } else if (cat === "atp-250") {
+          // Top players casi nunca juegan 250s
+          prob = rival.rank <= 5 ? 0.05 : rival.rank <= 10 ? 0.08 : rival.rank <= 20 ? 0.12 : rival.rank <= 50 ? 0.40 : rival.rank <= 100 ? 0.75 : 0.90
           if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.10)
         } else if (cat === "challenger") {
-          prob = rival.rank <= 50 ? 0.05 : rival.rank <= 100 ? 0.30 : 0.85
+          prob = rival.rank <= 50 ? 0.02 : rival.rank <= 100 ? 0.20 : rival.rank <= 150 ? 0.70 : 0.90
         } else if (cat === "futures") {
-          prob = rival.rank <= 100 ? 0.02 : rival.rank <= 150 ? 0.20 : 0.80
+          prob = rival.rank <= 100 ? 0.01 : rival.rank <= 150 ? 0.10 : rival.rank <= 200 ? 0.50 : 0.85
         }
         const seed = hashStr(`${tournament.id}-${rival.id}`)
         const rand = (seed % 1000) / 1000
@@ -920,7 +925,9 @@ const [activeDavisMatchType, setActiveDavisMatchType] = useState<string | null>(
  const allRivals = buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date)
   const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
   const tournamentsThisWeek = getTournamentsOnDate(t.date)
-  const rivsForDraw = getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
+  const rivsForDraw = t.category === "atp-finals"
+    ? allNonUserRivals.sort((a, b) => a.rank - b.rank).slice(0, 8)
+    : getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
   let matches = t.category === "atp-finals"
     ? buildRoundRobinDraw(rivsForDraw, userRival, false)
     : buildDraw(t, rivsForDraw, userRival, false)
@@ -953,15 +960,15 @@ const [activeDavisMatchType, setActiveDavisMatchType] = useState<string | null>(
     const allRivals = buildLiveRanking(career.player.tour, career.points, career.player, career.rivalBonusHistory, career.date)
   const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
   const tournamentsThisWeek = getTournamentsOnDate(t.date)
-  const rivsForDraw = getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
-
-    let matches: DrawMatch[] = []
-
-    if (status.kind === "direct") {
-      setPlayingQualy(false)
-      matches = t.category === "atp-finals"
-        ? buildRoundRobinDraw(rivsForDraw, userRival, true)
-        : buildDraw(t, rivsForDraw, userRival, true)
+  const rivsForDraw = t.category === "atp-finals"
+    ? allNonUserRivals.sort((a, b) => a.rank - b.rank).slice(0, 8)
+    : getEligibleRivalsForTournament(t, allNonUserRivals, tournamentsThisWeek)
+  let matches: DrawMatch[] = []
+  if (status.kind === "direct") {
+    setPlayingQualy(false)
+    matches = t.category === "atp-finals"
+      ? buildRoundRobinDraw(rivsForDraw, userRival, true)
+      : buildDraw(t, rivsForDraw, userRival, true)
     } else {
       setPlayingQualy(true)
       const qualyEntry = CATEGORY_INFO[t.category].qualyEntryRank
