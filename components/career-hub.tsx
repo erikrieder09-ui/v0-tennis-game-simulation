@@ -90,8 +90,6 @@ function getEligibleRivalsForTournament(
 
   const assignedTo: Record<string, string> = {}
 
-  // Para GS y M1000: asignar los top rankeados con alta probabilidad
-  // Para torneos de igual categoría: distribuir balanceado usando hash
   for (const tournament of sortedTournaments) {
     const sameCatTournaments = sortedTournaments.filter(t2 => t2.category === tournament.category)
     const tournamentIndex = sameCatTournaments.findIndex(t2 => t2.id === tournament.id)
@@ -99,81 +97,86 @@ function getEligibleRivalsForTournament(
     for (const rival of allRivals) {
       if (assignedTo[rival.id]) continue
 
-      // Si hay múltiples torneos de la misma categoría esta semana,
-      // distribuir balanceado por hash (determinístico)
       if (sameCatTournaments.length > 1) {
+        // Múltiples torneos de la misma categoría: distribuir por hash
         const rivalHash = hashStr(`${rival.id}-${t.date}`)
         const assignedIndex = rivalHash % sameCatTournaments.length
-
-        // ¿Este rival "prefiere" este torneo según el hash?
         if (assignedIndex !== tournamentIndex) continue
 
-        // Probabilidad adicional: los top players pueden saltarse torneos opcionales
+        // Top players pueden saltarse torneos opcionales
         const cat = tournament.category
         if (cat === "atp-500" || cat === "atp-250") {
-          const skipProb = rival.rank <= 5 ? 0.40
-            : rival.rank <= 10 ? 0.25
-            : rival.rank <= 20 ? 0.15
+          const skipProb = rival.rank <= 5 ? 0.55
+            : rival.rank <= 10 ? 0.40
+            : rival.rank <= 20 ? 0.25
             : 0.05
           const skipHash = hashStr(`skip-${tournament.id}-${rival.id}`)
-          const skipRand = (skipHash % 1000) / 1000
-          if (skipRand < skipProb) continue // el jugador decide no jugar esta semana
+          if ((skipHash % 1000) / 1000 < skipProb) continue
         }
-
         assignedTo[rival.id] = tournament.id
       } else {
-        // Torneo único esta semana: probabilidad normal de participación
+        // Torneo único esta semana
         const cat = tournament.category
         let prob = 0.8
+
         if (cat === "grand-slam" || cat === "masters-1000") {
           prob = rival.rank <= 30 ? 0.95 : rival.rank <= 60 ? 0.85 : 0.70
         } else if (cat === "atp-500") {
-          // Top 5 raramente juegan 500s salvo superficie favorita
-          prob = rival.rank <= 5 ? 0.35 : rival.rank <= 10 ? 0.55 : rival.rank <= 20 ? 0.75 : rival.rank <= 50 ? 0.88 : 0.92
+          // Top 5 raramente juegan un 500 si no es su torneo favorito
+          prob = rival.rank <= 5 ? 0.25
+            : rival.rank <= 10 ? 0.45
+            : rival.rank <= 20 ? 0.65
+            : rival.rank <= 50 ? 0.85
+            : 0.92
           if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.20)
         } else if (cat === "atp-250") {
-          // Top players casi nunca juegan 250s
-          prob = rival.rank <= 5 ? 0.05 : rival.rank <= 10 ? 0.08 : rival.rank <= 20 ? 0.12 : rival.rank <= 50 ? 0.40 : rival.rank <= 100 ? 0.75 : 0.90
-          if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.10)
+          // Top 10 casi nunca juegan 250s salvo que sea su torneo favorito
+          prob = rival.rank <= 5 ? 0.08
+            : rival.rank <= 10 ? 0.15
+            : rival.rank <= 20 ? 0.30
+            : rival.rank <= 50 ? 0.65
+            : rival.rank <= 100 ? 0.85
+            : 0.92
+          if (rival.favSurface === tournament.surface) prob = Math.min(1, prob + 0.15)
         } else if (cat === "challenger") {
-          prob = rival.rank <= 50 ? 0.02 : rival.rank <= 100 ? 0.20 : rival.rank <= 150 ? 0.70 : 0.90
+          prob = rival.rank <= 50 ? 0.03
+            : rival.rank <= 80 ? 0.15
+            : rival.rank <= 120 ? 0.60
+            : 0.88
         } else if (cat === "futures") {
-          prob = rival.rank <= 100 ? 0.01 : rival.rank <= 150 ? 0.10 : rival.rank <= 200 ? 0.50 : 0.85
+          prob = rival.rank <= 100 ? 0.01
+            : rival.rank <= 150 ? 0.15
+            : 0.82
         }
+
         const seed = hashStr(`${tournament.id}-${rival.id}`)
-        const rand = (seed % 1000) / 1000
-        if (rand < prob) assignedTo[rival.id] = tournament.id
+        if ((seed % 1000) / 1000 < prob) assignedTo[rival.id] = tournament.id
       }
     }
   }
 
   let assigned = allRivals.filter(r => assignedTo[r.id] === t.id)
 
-  // Rango de ranking apropiado para cada categoría (para el fallback)
-  const rankRange: [number, number] = 
+  // Rango apropiado para el fallback
+  const rankRange: [number, number] =
     t.category === "grand-slam" ? [1, 200] :
     t.category === "masters-1000" ? [1, 100] :
-    t.category === "atp-500" ? [1, 80] :
-    t.category === "atp-250" ? [10, 150] :
+    t.category === "atp-500" ? [5, 80] :
+    t.category === "atp-250" ? [20, 150] :
     t.category === "challenger" ? [60, 249] :
     t.category === "futures" ? [120, 249] :
     [1, 249]
 
-  // Completar con no asignados dentro del rango apropiado
   const needed = CATEGORY_INFO[t.category].drawSize + 10
   if (assigned.length < needed) {
     const unassigned = allRivals.filter(r =>
       !assignedTo[r.id] &&
       r.rank >= rankRange[0] &&
       r.rank <= rankRange[1]
-    )
-    const extras = unassigned
-      .sort((a, b) => a.rank - b.rank)
-      .slice(0, needed - assigned.length)
-    assigned = [...assigned, ...extras]
+    ).sort((a, b) => a.rank - b.rank)
+    assigned = [...assigned, ...unassigned.slice(0, needed - assigned.length)]
   }
 
-  // Último recurso: si aún faltan, ampliar el rango pero seguir sin top players en torneos bajos
   if (assigned.length < CATEGORY_INFO[t.category].drawSize) {
     const assignedIds = new Set(assigned.map(r => r.id))
     const remaining = allRivals
