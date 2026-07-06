@@ -105,7 +105,7 @@ export interface CareerState {
 }
 
  
-const SEASON_START = "2026-06-08" // Monday, start of the grass swing
+const SEASON_START = "2026-01-05" 
  
 /** Points curve mirrored from rivals.ts so the player ranks coherently. */
 function pointsForRank(rank: number): number {
@@ -157,7 +157,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     davisCup: null,
   }
  }
- 
+
 /* -------------------------------------------------------------------------- */
 /*  Ranking with the player inserted by POINTS                                 */
 /* -------------------------------------------------------------------------- */
