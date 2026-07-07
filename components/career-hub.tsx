@@ -97,6 +97,10 @@ function getEligibleRivalsForTournament(
     for (const rival of allRivals) {
       if (assignedTo[rival.id]) continue
 
+      // Filtro duro: top players nunca juegan challengers ni futures
+      if (tournament.category === "challenger" && rival.rank < 60) continue
+      if (tournament.category === "futures" && rival.rank < 120) continue
+
       if (sameCatTournaments.length > 1) {
         // Verificar rango de ranking apropiado para este torneo
         const cat = tournament.category
