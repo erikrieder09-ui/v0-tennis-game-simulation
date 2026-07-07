@@ -875,6 +875,7 @@ export function CareerHub({ player }: Props) {
   const [qualyCompleted, setQualyCompleted] = useState(false)
   const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
   const [selectedRival, setSelectedRival] = useState<Rival | null>(null)
+  const [seasonSummary, setSeasonSummary] = useState<CareerState["seasonStats"] | null>(null)
   const [activeDavisSeries, setActiveDavisSeries] = useState<DavisSeries | null>(null)
 const [activeDavisMatchType, setActiveDavisMatchType] = useState<string | null>(null)
 
@@ -1124,6 +1125,13 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       fitness: newFitness,
       matchesWon: prev.matchesWon + (userWon ? 1 : 0),
       matchesLost: prev.matchesLost + (userWon ? 0 : 1),
+      seasonStats: {
+        ...prev.seasonStats,
+        matchesWon: prev.seasonStats.matchesWon + (userWon ? 1 : 0),
+        matchesLost: prev.seasonStats.matchesLost + (userWon ? 0 : 1),
+        pointsEarned: prev.seasonStats.pointsEarned + ptsEarned,
+        bestRank: Math.min(prev.seasonStats.bestRank, playerRank),
+      },
       log: levelsGained > 0
         ? [...prev.log, resultMsg, `🎉 ¡Subiste a nivel ${newLevel}!`]
         : [...prev.log, resultMsg],
@@ -1240,7 +1248,31 @@ rivalPalmares: bonusUpdate
       const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
       const next = checkAnnualProgression({ ...advanced, points: recalculated })
 
-      // Resetear Copa Davis al inicio de cada año nuevo
+      // Detectar cambio de temporada
+      if (next.lastProgressionDate !== prev.lastProgressionDate) {
+        const completedYear = new Date(prev.lastProgressionDate).getFullYear()
+        const seasonSummaryData = next.seasonStats
+
+        // Resetear stats de temporada y Copa Davis
+        setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
+        return {
+          ...next,
+          davisCup: null,
+          seasonStats: {
+            matchesWon: 0,
+            matchesLost: 0,
+            bestRank: getPlayerRank(next),
+            pointsEarned: 0,
+            year: completedYear + 1,
+          },
+          log: [
+            ...next.log,
+            `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`,
+          ],
+        }
+      }
+
+      // Resetear Copa Davis al inicio de cada año nuevo (sin progresión)
       const prevYear = new Date(prev.date).getFullYear()
       const nextYear = new Date(next.date).getFullYear()
       if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
@@ -1254,6 +1286,7 @@ rivalPalmares: bonusUpdate
 
       return next
     })
+    
   }
 
   function buyEnergyBottle() {
@@ -1413,6 +1446,47 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
     </div>
   )
 }
+
+function SeasonSummaryModal({ stats, onClose }: {
+    stats: CareerState["seasonStats"]
+    onClose: () => void
+  }) {
+    const progressMsg = career.log.find(l => l.includes(`Temporada ${stats.year}`)) ?? ""
+    return (
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm space-y-5 text-center">
+          <div className="text-2xl">📊</div>
+          <div>
+            <div className="text-lg font-bold">Temporada {stats.year} completada</div>
+            <div className="text-sm text-zinc-400 mt-0.5">{career.player.firstName} {career.player.lastName} · {career.player.age} años</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-zinc-800 rounded-xl p-3">
+              <div className="text-xl font-bold">{stats.matchesWon}W / {stats.matchesLost}L</div>
+              <div className="text-xs text-zinc-500 mt-0.5">Récord temporada</div>
+            </div>
+            <div className="bg-zinc-800 rounded-xl p-3">
+              <div className="text-xl font-bold text-yellow-300">#{stats.bestRank}</div>
+              <div className="text-xs text-zinc-500 mt-0.5">Mejor ranking</div>
+            </div>
+            <div className="bg-zinc-800 rounded-xl p-3 col-span-2">
+              <div className="text-xl font-bold text-green-400">+{stats.pointsEarned} pts</div>
+              <div className="text-xs text-zinc-500 mt-0.5">Puntos ganados en la temporada</div>
+            </div>
+          </div>
+          {progressMsg && (
+            <div className="text-xs text-zinc-400 bg-zinc-800 rounded-lg p-3 text-left">
+              {progressMsg.replace(`📊 Temporada ${stats.year}: `, "")}
+            </div>
+          )}
+          <Button className="w-full" onClick={onClose}>
+            Continuar →
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
 
   /* ---- RENDER ---- */
 
@@ -2216,6 +2290,13 @@ function RivalModal({ rival, onClose }: { rival: Rival; onClose: () => void }) {
             </div>
           </div>
         </div>
+      )}
+
+{seasonSummary && (
+        <SeasonSummaryModal
+          stats={seasonSummary}
+          onClose={() => setSeasonSummary(null)}
+        />
       )}
 
       {selectedRival != null && (

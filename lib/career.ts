@@ -102,6 +102,14 @@ export interface CareerState {
   rivalPalmares: Record<string, string[]>
   /** estado de la Copa Davis del año en curso */
   davisCup: import("./davis-cup").DavisCupState | null
+  /** estadísticas de la temporada en curso (se resetean cada año) */
+  seasonStats: {
+    matchesWon: number
+    matchesLost: number
+    bestRank: number
+    pointsEarned: number
+    year: number
+  }
 }
 
  
@@ -155,6 +163,13 @@ export function createCareer(player: PlayerProfile): CareerState {
     lastProgressionDate: SEASON_START,
     rivalPalmares: {},
     davisCup: null,
+    seasonStats: {
+      matchesWon: 0,
+      matchesLost: 0,
+      bestRank: startRank,
+      pointsEarned: 0,
+      year: 2026,
+    },
   }
  }
 
