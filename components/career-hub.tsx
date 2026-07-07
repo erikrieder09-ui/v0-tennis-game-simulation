@@ -175,8 +175,8 @@ function getEligibleRivalsForTournament(
     t.category === "masters-1000" ? [1, 100] :
     t.category === "atp-500" ? [5, 80] :
     t.category === "atp-250" ? [20, 150] :
-    t.category === "challenger" ? [60, 249] :
-    t.category === "futures" ? [120, 249] :
+    t.category === "challenger" ? [80, 249] :
+    t.category === "futures" ? [150, 249] :
     [1, 249]
 
   const needed = CATEGORY_INFO[t.category].drawSize + 10
@@ -191,8 +191,12 @@ function getEligibleRivalsForTournament(
 
   if (assigned.length < CATEGORY_INFO[t.category].drawSize) {
     const assignedIds = new Set(assigned.map(r => r.id))
+    // Para challengers y futures, el rango mínimo es estricto — nunca meter top players
+    const strictMin = t.category === "challenger" ? 60 
+      : t.category === "futures" ? 120 
+      : rankRange[0]
     const remaining = allRivals
-      .filter(r => !assignedIds.has(r.id) && r.rank >= rankRange[0])
+      .filter(r => !assignedIds.has(r.id) && r.rank >= strictMin)
       .sort((a, b) => a.rank - b.rank)
     assigned = [...assigned, ...remaining]
   }
