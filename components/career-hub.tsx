@@ -1766,7 +1766,16 @@ function SeasonSummaryModal({ stats, onClose }: {
   const minDateLabel = ["febrero", "julio", "septiembre", "noviembre"][roundIdx]
   return playable ? (
     <Button className="w-full mt-3" variant="outline" onClick={() => {
-                        const simulatedRound = round.map(s => simulateDavisSeries(s, career.davisCup?.userAccepted ? "USER" : ""))
+                        const simulatedRound = round.map(s => {
+  const userCountry = career.davisCup!.userCountry
+  const isUserSeries = s.home.country === userCountry || s.away.country === userCountry
+  if (isUserSeries) {
+    console.log("Serie del usuario:", s.home.country, "vs", s.away.country)
+    console.log("Home players:", s.home.players.map(p => `${p.id} ${p.lastName}`))
+    console.log("Away players:", s.away.players.map(p => `${p.id} ${p.lastName}`))
+  }
+  return simulateDavisSeries(s, career.davisCup?.userAccepted ? "USER" : "")
+})
                         const newRounds = [...career.davisCup!.rounds]
                         newRounds[roundIdx] = simulatedRound
 
