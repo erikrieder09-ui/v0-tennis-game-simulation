@@ -110,7 +110,7 @@ const CALENDAR_SEED: CalSeed[] = [
   { wk: 29, name: "Challenger de San Marino", city: "San Marino", country: "ITA", category: "challenger", surface: "clay", fee: 0 },
   { wk: 30, name: "ATP/WTA 250 de Umag", city: "Umag", country: "CRO", category: "atp-250", surface: "clay" },
   // North American hard swing
-  { wk: 30, name: "ATP 500 de Washington", city: "Washington", country: "USA", category: "atp-500", surface: "clay" },
+  { wk: 30, name: "ATP 500 de Washington", city: "Washington", country: "USA", category: "atp-500", surface: "hard" },
   { wk: 31, name: "Masters 1000 de Canadá", city: "Toronto", country: "CAN", category: "masters-1000", surface: "hard" },
   { wk: 32, name: "Masters 1000 de Cincinnati", city: "Cincinnati", country: "USA", category: "masters-1000", surface: "hard" },
   { wk: 33, name: "ATP/WTA 250 de Winston-Salem", city: "Winston-Salem", country: "USA", category: "atp-250", surface: "hard" },
