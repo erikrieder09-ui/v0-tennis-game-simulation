@@ -98,13 +98,25 @@ function getEligibleRivalsForTournament(
       if (assignedTo[rival.id]) continue
 
       if (sameCatTournaments.length > 1) {
-        // Múltiples torneos de la misma categoría: distribuir por hash
+        // Verificar rango de ranking apropiado para este torneo
+        const cat = tournament.category
+        const rankRange: [number, number] = 
+          cat === "grand-slam" ? [1, 200] :
+          cat === "masters-1000" ? [1, 100] :
+          cat === "atp-500" ? [1, 80] :
+          cat === "atp-250" ? [10, 150] :
+          cat === "challenger" ? [60, 249] :
+          cat === "futures" ? [120, 249] :
+          [1, 249]
+
+        if (rival.rank < rankRange[0] || rival.rank > rankRange[1]) continue
+
         const rivalHash = hashStr(`${rival.id}-${t.date}`)
         const assignedIndex = rivalHash % sameCatTournaments.length
+
         if (assignedIndex !== tournamentIndex) continue
 
         // Top players pueden saltarse torneos opcionales
-        const cat = tournament.category
         if (cat === "atp-500" || cat === "atp-250") {
           const skipProb = rival.rank <= 5 ? 0.55
             : rival.rank <= 10 ? 0.40
