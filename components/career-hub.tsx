@@ -590,10 +590,11 @@ function simulateRoundRobinToChampion(matches: DrawMatch[], surface: string, bes
 /*  Match Sim UI                                                               */
 /* -------------------------------------------------------------------------- */
 
-function MatchSimUI({ config, userIs, onEnd }: {
+function MatchSimUI({ config, userIs, onEnd, spectator = false }: {
   config: MatchConfig
   userIs: 1 | 2
   onEnd: (state: MatchState) => void
+  spectator?: boolean
 }) {
   const [state, setState] = useState<MatchState>(() => createMatchState(config))
   const [log, setLog] = useState<string[]>(["El partido está por comenzar..."])
@@ -699,15 +700,31 @@ function MatchSimUI({ config, userIs, onEnd }: {
       </div>
 
       {/* Controls */}
+      {/* Controls */}
       {!state.over && (
-        <div className="grid grid-cols-2 gap-2">
-          <Button className="col-span-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold" onClick={doPoint} disabled={simming}>
-            ▶ Jugar punto
-          </Button>
-          <Button variant="outline" onClick={doGame} disabled={simming}>▶▶ Juego</Button>
-          <Button variant="outline" onClick={doSet} disabled={simming}>⏩ Set</Button>
-          <Button variant="ghost" className="col-span-2 text-zinc-400" onClick={doFast}>⚡ Simular rápido</Button>
-        </div>
+        spectator ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              className="col-span-2 bg-zinc-700 hover:bg-zinc-600 text-white font-bold"
+              onClick={doPoint}
+              disabled={simming}
+            >
+              ▶ Siguiente punto
+            </Button>
+            <Button variant="outline" onClick={doGame} disabled={simming}>▶▶ Juego</Button>
+            <Button variant="outline" onClick={doSet} disabled={simming}>⏩ Set</Button>
+            <Button variant="ghost" className="col-span-2 text-zinc-400" onClick={doFast}>⚡ Simular rápido</Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <Button className="col-span-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold" onClick={doPoint} disabled={simming}>
+              ▶ Jugar punto
+            </Button>
+            <Button variant="outline" onClick={doGame} disabled={simming}>▶▶ Juego</Button>
+            <Button variant="outline" onClick={doSet} disabled={simming}>⏩ Set</Button>
+            <Button variant="ghost" className="col-span-2 text-zinc-400" onClick={doFast}>⚡ Simular rápido</Button>
+          </div>
+        )
       )}
 
       {/* Result banner */}
@@ -748,7 +765,11 @@ function MatchSimUI({ config, userIs, onEnd }: {
 /*  Draw viewer                                                                */
 /* -------------------------------------------------------------------------- */
 
-function DrawViewer({ matches, onUserMatchClick }: { matches: DrawMatch[], onUserMatchClick: (m: DrawMatch) => void }) {
+function DrawViewer({ matches, onUserMatchClick, onSpectatorClick }: { 
+  matches: DrawMatch[]
+  onUserMatchClick: (m: DrawMatch) => void
+  onSpectatorClick?: (m: DrawMatch) => void
+}) {
   const isRoundRobin = matches.some(m => m.phase === "group")
 
   if (isRoundRobin) {
@@ -850,10 +871,10 @@ function DrawViewer({ matches, onUserMatchClick }: { matches: DrawMatch[], onUse
                 <div
                   key={m.id}
                   className={`border rounded-lg overflow-hidden w-40 text-xs
-                    ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
+    ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : m.winner ? "border-zinc-700 bg-zinc-900 cursor-pointer hover:border-zinc-500" : "border-zinc-700 bg-zinc-900"}
                     ${m.winner ? "opacity-90" : ""}
                   `}
-                  onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
+                  onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : (!m.isUser && m.winner && onSpectatorClick) ? () => onSpectatorClick(m) : undefined}
                 >
                   {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
                     <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
@@ -912,6 +933,7 @@ useEffect(() => {
 
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
+  const [spectatorMatch, setSpectatorMatch] = useState<{ config: MatchConfig; matchId: string } | null>(null)
 
   const userRival: Rival = {
     id: "USER",
@@ -2135,7 +2157,24 @@ function SeasonSummaryModal({ stats, onClose }: {
             )
           })()}
 
-          <DrawViewer matches={drawMatches} onUserMatchClick={handleUserMatchClick} />
+          <DrawViewer
+  matches={drawMatches}
+  onUserMatchClick={handleUserMatchClick}
+  onSpectatorClick={(m) => {
+    if (!selectedT || !m.p1 || !m.p2) return
+    const info = CATEGORY_INFO[selectedT.category]
+    const config: MatchConfig = {
+      player1: m.p1,
+      player2: m.p2,
+      surface: selectedT.surface as any,
+      bestOf: info.bestOf,
+      finalSetTiebreak: true,
+      finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
+    }
+    setSpectatorMatch({ config, matchId: m.id })
+    setView("match")
+  }}
+/>
         </div>
       )}
 
@@ -2250,21 +2289,35 @@ function SeasonSummaryModal({ stats, onClose }: {
       )}
 
       {/* MATCH */}
-      {view === "match" && activeMatch && (
+      {view === "match" && (activeMatch || spectatorMatch) && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { setActiveMatch(null); setView("draw") }}>← Volver</Button>
+            <Button variant="ghost" size="sm" onClick={() => { 
+              setActiveMatch(null)
+              setSpectatorMatch(null)
+              setView("draw") 
+            }}>← Volver</Button>
             <div>
               <div className="font-bold">{selectedT?.name}</div>
               <div className="text-xs text-zinc-500">{selectedT ? SURFACE_LABEL[selectedT.surface] : ""}</div>
             </div>
           </div>
-          <MatchSimUI
-            config={activeMatch.config}
-            userIs={activeMatch.userIs}
-            onEnd={handleMatchEnd}
-          />
-          {matchResult && (
+          {activeMatch && (
+            <MatchSimUI
+              config={activeMatch.config}
+              userIs={activeMatch.userIs}
+              onEnd={handleMatchEnd}
+            />
+          )}
+          {spectatorMatch && (
+            <MatchSimUI
+              config={spectatorMatch.config}
+              userIs={1}
+              spectator={true}
+              onEnd={() => { setSpectatorMatch(null); setView("draw") }}
+            />
+          )}
+          {matchResult && activeMatch && (
             <Button className="w-full" onClick={() => { setActiveMatch(null); setView("draw") }}>
               Volver al cuadro
             </Button>
