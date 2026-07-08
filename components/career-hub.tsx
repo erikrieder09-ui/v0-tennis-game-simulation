@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -884,7 +884,13 @@ interface Props {
 type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis" | "davis-match"  
 
 export function CareerHub({ player }: Props) {
-  const [career, setCareer] = useState<CareerState>(() => createCareer(player))
+  const [career, setCareer] = useState<CareerState>(() => {
+    try {
+      const saved = localStorage.getItem("matchpoint-career")
+      if (saved) return JSON.parse(saved) as CareerState
+    } catch {}
+    return createCareer(player)
+  })
   const [view, setView] = useState<View>("hub")
   const [selectedT, setSelectedT] = useState<Tournament | null>(null)
   const [drawMatches, setDrawMatches] = useState<DrawMatch[]>([])
@@ -898,6 +904,11 @@ export function CareerHub({ player }: Props) {
   const [seasonSummary, setSeasonSummary] = useState<CareerState["seasonStats"] | null>(null)
   const [activeDavisSeries, setActiveDavisSeries] = useState<DavisSeries | null>(null)
 const [activeDavisMatchType, setActiveDavisMatchType] = useState<string | null>(null)
+useEffect(() => {
+    try {
+      localStorage.setItem("matchpoint-career", JSON.stringify(career))
+    } catch {}
+  }, [career])
 
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)

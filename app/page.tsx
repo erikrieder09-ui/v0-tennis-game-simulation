@@ -29,6 +29,7 @@ export default function Page() {
           {player && (
             <Button variant="ghost" size="sm" onClick={() => {
               if (confirm("¿Borrar tu jugador y empezar de nuevo?")) {
+                localStorage.removeItem("matchpoint-career")
                 setPlayer(null)
                 setCreating(false)
               }
