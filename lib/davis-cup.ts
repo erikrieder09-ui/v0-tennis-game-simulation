@@ -364,9 +364,10 @@ export function checkUserInvitation(
   }
 
   if (userRank < worstInTeam.rank) {
-    // Insertar en la posición correcta según ranking (máximo posición 1 para que juegue S1 o S2)
-    const position = Math.min(players.length - 1, 1)
-    return { invited: true, position, replacedPlayer: players[position] }
+    // Encontrar la posición correcta según ranking
+    const position = players.findIndex(p => userRank < p.rank)
+    const targetPosition = position === -1 ? players.length - 1 : position
+    return { invited: true, position: targetPosition, replacedPlayer: players[targetPosition] }
   }
 
   return { invited: false, position: -1, replacedPlayer: null }
