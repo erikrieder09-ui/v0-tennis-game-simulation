@@ -407,3 +407,19 @@ export function checkAnnualProgression(career: CareerState): CareerState {
 
 }
 
+/** Devuelve los puntos que vencen en las próximas N semanas */
+export function getExpiringPoints(
+  history: PointsEntry[],
+  currentDate: string,
+  weeksAhead: number = 8
+): PointsEntry[] {
+  const cutoff = addWeeks(currentDate, -RANKING_WINDOW_WEEKS)
+  const futureWindow = addWeeks(currentDate, weeksAhead - RANKING_WINDOW_WEEKS)
+  return history
+    .filter(e => e.date > cutoff && e.date <= addWeeks(currentDate, weeksAhead - RANKING_WINDOW_WEEKS + RANKING_WINDOW_WEEKS))
+    .filter(e => {
+      const expiryDate = addWeeks(e.date, RANKING_WINDOW_WEEKS)
+      return expiryDate > currentDate && expiryDate <= addWeeks(currentDate, weeksAhead)
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+}

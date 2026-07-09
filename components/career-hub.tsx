@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   createCareer, buildLiveRanking, getPlayerRank, addWeeks, formatDate, formatMoney,
-  addPointsEntry, recomputePoints, checkAnnualProgression,
+  addPointsEntry, recomputePoints, checkAnnualProgression, getExpiringPoints,
   type CareerState, type PointsEntry,
 } from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament } from "@/lib/calendar"
@@ -23,6 +23,7 @@ import {
   initDavisCup, simulateDavisSeries, advanceDavisRound,
   checkUserInvitation, isDavisRoundPlayable, type DavisCupState, type DavisSeries,
 } from "@/lib/davis-cup"
+
 
 
 
@@ -2005,6 +2006,34 @@ function SeasonSummaryModal({ stats, onClose }: {
             })}
           </div>
           <Button variant="outline" className="w-full" onClick={advanceWeek}>
+            {/* Puntos defensores */}
+          {(() => {
+            const expiring = getExpiringPoints(career.pointsHistory, career.date, 8)
+            if (expiring.length === 0) return null
+            const totalExpiring = expiring.reduce((s, e) => s + e.points, 0)
+            return (
+              <div className="bg-zinc-900 border border-orange-800/50 rounded-xl p-4">
+                <div className="text-xs font-bold text-orange-400 mb-2">⚠️ PUNTOS QUE VENCEN (próximas 8 semanas)</div>
+                <div className="space-y-1.5">
+                  {expiring.map(e => {
+                    const expiryDate = addWeeks(e.date, 52)
+                    const weeksLeft = Math.round((new Date(expiryDate).getTime() - new Date(career.date).getTime()) / (7 * 24 * 60 * 60 * 1000))
+                    return (
+                      <div key={e.id} className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-300 truncate flex-1">{e.label}</span>
+                        <span className="text-orange-300 font-mono mx-2">-{e.points} pts</span>
+                        <span className="text-zinc-500">{weeksLeft}s</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="border-t border-zinc-700 mt-2 pt-2 flex justify-between text-xs">
+                  <span className="text-zinc-500">Total a perder</span>
+                  <span className="text-orange-400 font-bold">-{totalExpiring} pts</span>
+                </div>
+              </div>
+            )
+          })()}
             → Pasar semana ({formatDate(addWeeks(career.date, 1))})
           </Button>
           {career.log.slice(-5).reverse().map((l, i) => (
