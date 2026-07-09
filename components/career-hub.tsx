@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   createCareer, buildLiveRanking, getPlayerRank, addWeeks, formatDate, formatMoney,
-  addPointsEntry, recomputePoints, checkAnnualProgression, getExpiringPoints,
+  addTournamentResult, recomputePoints, pruneExpired, pruneRivalHistories, weekNumber,
+  checkAnnualProgression, getExpiringPoints,
   type CareerState, type PointsEntry,
 } from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament } from "@/lib/calendar"
@@ -232,13 +233,18 @@ interface DrawMatch {
  */
 function computeTournamentPointsBonus(
   matches: DrawMatch[],
-  category: Tournament["category"],
+  tournament: Tournament,
   existingHistory: Record<string, PointsEntry[]>,
   currentDate: string
 ): Record<string, PointsEntry[]> {
+  const category = tournament.category
   const winnerPoints = CATEGORY_INFO[category].winnerPoints
   const maxRound = Math.max(...matches.map(m => m.round))
   const updated = { ...existingHistory }
+
+  // La clave del torneo es independiente de la edición para reemplazar el resultado del año
+  // anterior. Cada rival guarda como máximo un resultado por torneo (su mejor ronda).
+  const bestByRival: Record<string, { points: number; round: string }> = {}
 
   matches.forEach(m => {
     if (!m.winner) return
@@ -246,12 +252,27 @@ function computeTournamentPointsBonus(
     if (loser && loser.id !== "USER") {
       const roundFraction = (m.round + 1) / (maxRound + 2)
       const pts = Math.round(winnerPoints * roundFraction * 0.5)
-      updated[loser.id] = addPointsEntry(updated[loser.id] ?? [], pts, currentDate, category)
+      const prev = bestByRival[loser.id]
+      if (!prev || pts > prev.points) bestByRival[loser.id] = { points: pts, round: `R${m.round + 1}` }
     }
     if (m.round === maxRound && m.winner.id !== "USER") {
-      updated[m.winner.id] = addPointsEntry(updated[m.winner.id] ?? [], winnerPoints, currentDate, category)
+      bestByRival[m.winner.id] = { points: winnerPoints, round: "Campeón" }
     }
   })
+
+  for (const rivalId in bestByRival) {
+    const { points, round } = bestByRival[rivalId]
+    updated[rivalId] = addTournamentResult(updated[rivalId] ?? [], {
+      points,
+      date: currentDate,
+      label: tournament.name,
+      tournamentKey: tournament.name,
+      category,
+      year: tournament.season,
+      week: weekNumber(currentDate),
+      round,
+    })
+  }
 
   return updated
 }
@@ -995,7 +1016,7 @@ useEffect(() => {
     matches = t.category === "atp-finals"
       ? simulateRoundRobinToChampion(matches, t.surface, bestOf)
       : simulateToChampion(matches, t.surface, bestOf)
-    const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusHistory, career.date)
+    const bonusMap = computeTournamentPointsBonus(matches, t, career.rivalBonusHistory, career.date)
     setCareer(prev => ({
       ...prev,
       tournamentResults: { ...prev.tournamentResults, [t.id]: matches },
@@ -1155,10 +1176,23 @@ useEffect(() => {
     const tournamentFinished = lastRoundMatches.length === 1 && !!lastRoundMatches[0].winner
 
     const bonusUpdate: Record<string, PointsEntry[]> | null = tournamentFinished
-      ? computeTournamentPointsBonus(finalMatches, selectedT.category, career.rivalBonusHistory, career.date)
+      ? computeTournamentPointsBonus(finalMatches, selectedT, career.rivalBonusHistory, career.date)
       : null
 
-    const newPointsHistory = addPointsEntry(career.pointsHistory, ptsEarned, career.date, selectedT.name)
+    // Regla ATP: cada resultado dentro de una misma edición REEMPLAZA al anterior (no se acumulan
+    // los puntos de cada ronda), y al volver a jugar el torneo al año siguiente se reemplaza la
+    // edición previa. addTournamentResult ignora categorías que no puntúan (p. ej. Futures).
+    const roundReached = userWon ? currentRound + 1 : currentRound
+    const newPointsHistory = addTournamentResult(career.pointsHistory, {
+      points: ptsEarned,
+      date: career.date,
+      label: selectedT.name,
+      tournamentKey: selectedT.name,
+      category: selectedT.category,
+      year: selectedT.season,
+      week: weekNumber(career.date),
+      round: userWon && tournamentFinished ? "Campeón" : `R${roundReached}`,
+    })
     const newPoints = recomputePoints(newPointsHistory, career.date)
     const newMoney = career.money + prizeEarned - (selectedT.entryFee ?? 0)
     const resultMsg = userWon
@@ -1245,7 +1279,7 @@ rivalPalmares: bonusUpdate
       const finalMatch = current.find(m => m.phase === "final")
       const finished = !!finalMatch?.winner
       if (finished) {
-        const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
+        const bonusMap = computeTournamentPointsBonus(current, selectedT, career.rivalBonusHistory, career.date)
         setCareer(prev => ({
   ...prev,
   tournamentResults: { ...prev.tournamentResults, [selectedT.id]: current },
@@ -1279,7 +1313,7 @@ rivalPalmares: bonusUpdate
     const newRoundMatches = current.filter(m => m.round === newMaxR)
     const finished = newRoundMatches.length === 1 && !!newRoundMatches[0].winner
     if (finished) {
-      const bonusMap = computeTournamentPointsBonus(current, selectedT.category, career.rivalBonusHistory, career.date)
+      const bonusMap = computeTournamentPointsBonus(current, selectedT, career.rivalBonusHistory, career.date)
       setCareer(prev => ({
   ...prev,
   tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },
@@ -1294,10 +1328,17 @@ rivalPalmares: bonusUpdate
 
   function advanceWeek() {
     setCareer(prev => {
+      const newDate = addWeeks(prev.date, 1)
+      // Caducidad automática: al avanzar una semana eliminamos los resultados con más de 52
+      // semanas (tanto del jugador como de los rivales) y recalculamos el ranking completo.
+      const prunedHistory = pruneExpired(prev.pointsHistory, newDate)
+      const prunedRivalBonus = pruneRivalHistories(prev.rivalBonusHistory, newDate)
       const advanced: CareerState = {
         ...prev,
-        date: addWeeks(prev.date, 1),
+        date: newDate,
         fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+        pointsHistory: prunedHistory,
+        rivalBonusHistory: prunedRivalBonus,
       }
       const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
       const next = checkAnnualProgression({ ...advanced, points: recalculated })
@@ -2103,7 +2144,7 @@ function SeasonSummaryModal({ stats, onClose }: {
                     const finished = selectedT.category === "atp-finals"
                       ? simulateRoundRobinToChampion(drawMatches, selectedT.surface, bestOf)
                       : simulateToChampion(drawMatches, selectedT.surface, bestOf)
-                    const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusHistory, career.date)
+                    const bonusMap = computeTournamentPointsBonus(finished, selectedT, career.rivalBonusHistory, career.date)
                     setCareer(prev => ({
   ...prev,
   tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finished },

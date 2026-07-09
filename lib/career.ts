@@ -9,25 +9,129 @@ import type { AttributeSet, Division, PlayerProfile, Rival, Surface, Tour } from
 export interface PointsEntry {
   id: string
   points: number
-  date: string   // ISO Monday en que se ganaron
-  label: string  // nombre del torneo, para mostrar
+  date: string           // ISO Monday en que se ganaron los puntos
+  label: string          // nombre del torneo (para mostrar)
+  /** clave del torneo independiente de la edición (normalmente el nombre) — usada para
+   *  reemplazar la edición del año anterior, igual que el ATP real. */
+  tournamentKey?: string
+  category?: string      // grand-slam | masters-1000 | atp-500 | atp-250 | challenger | atp-finals
+  year?: number          // temporada de la edición
+  week?: number          // semana del calendario del juego (1-52)
+  round?: string         // ronda alcanzada
+  /** fecha de expiración (52 semanas después de `date`). Al pasarse, el resultado desaparece. */
+  expiresAt?: string
 }
- 
+
 const RANKING_WINDOW_WEEKS = 52
- 
+
+/** Categorías que otorgan puntos de ranking (circuito válido, estilo ATP). Futures queda fuera. */
+export const RANKING_CATEGORIES = new Set([
+  "grand-slam",
+  "masters-1000",
+  "atp-500",
+  "atp-250",
+  "challenger",
+  "atp-finals",
+])
+
+export function countsForRanking(category?: string): boolean {
+  if (!category) return true
+  return RANKING_CATEGORIES.has(category)
+}
+
+/** Fecha en la que un resultado deja de contar para el ranking. */
+function entryExpiry(e: PointsEntry): string {
+  return e.expiresAt ?? addWeeks(e.date, RANKING_WINDOW_WEEKS)
+}
+
+/** ¿El resultado sigue vigente (dentro de las últimas 52 semanas)? */
+export function isEntryActive(e: PointsEntry, currentDate: string): boolean {
+  return currentDate < entryExpiry(e)
+}
+
 export function isWithinRankingWindow(entryDate: string, currentDate: string): boolean {
   const cutoff = addWeeks(currentDate, -RANKING_WINDOW_WEEKS)
   return entryDate >= cutoff
 }
- 
-/** Suma solo los puntos cuya fecha está dentro de las últimas 52 semanas. */
+
+/** Suma solo los puntos de resultados vigentes (no expirados). Nunca hay puntos permanentes. */
 export function recomputePoints(history: PointsEntry[], currentDate: string): number {
   return history
-    .filter(e => isWithinRankingWindow(e.date, currentDate))
+    .filter(e => isEntryActive(e, currentDate))
     .reduce((sum, e) => sum + e.points, 0)
 }
- 
-/** Agrega una entrada nueva al historial de puntos. */
+
+/** Elimina físicamente los resultados con más de 52 semanas (caducidad automática semanal). */
+export function pruneExpired(history: PointsEntry[], currentDate: string): PointsEntry[] {
+  return history.filter(e => isEntryActive(e, currentDate))
+}
+
+/** Aplica la caducidad automática a los historiales de puntos extra de todos los rivales. */
+export function pruneRivalHistories(
+  map: Record<string, PointsEntry[]>,
+  currentDate: string
+): Record<string, PointsEntry[]> {
+  const out: Record<string, PointsEntry[]> = {}
+  for (const id in map) {
+    const pruned = pruneExpired(map[id], currentDate)
+    if (pruned.length > 0) out[id] = pruned
+  }
+  return out
+}
+
+/** Número de semana del calendario del juego (1-52) para una fecha dada. */
+export function weekNumber(date: string): number {
+  const diffWeeks = Math.round(
+    (new Date(date + "T00:00:00").getTime() - new Date(SEASON_START + "T00:00:00").getTime()) /
+      (7 * 24 * 60 * 60 * 1000)
+  )
+  return ((diffWeeks % RANKING_WINDOW_WEEKS) + RANKING_WINDOW_WEEKS) % RANKING_WINDOW_WEEKS + 1
+}
+
+export interface TournamentResultInput {
+  points: number
+  date: string
+  label: string
+  /** clave independiente de la edición (nombre del torneo). */
+  tournamentKey: string
+  category?: string
+  year?: number
+  week?: number
+  round?: string
+}
+
+/**
+ * Registra el resultado de un torneo en el ranking rolling, aplicando la regla del ATP:
+ *  1. elimina cualquier resultado previo del MISMO torneo (edición anterior o ronda anterior
+ *     de esta misma edición), evitando acumulaciones;
+ *  2. agrega el nuevo resultado con su fecha de expiración (52 semanas después).
+ * Los torneos que no cuentan para el ranking (p. ej. Futures) no modifican el historial.
+ */
+export function addTournamentResult(
+  history: PointsEntry[],
+  input: TournamentResultInput
+): PointsEntry[] {
+  if (!countsForRanking(input.category)) return history
+  // Quitar la edición/ronda previa del mismo torneo.
+  const filtered = history.filter(e => e.tournamentKey !== input.tournamentKey)
+  return [
+    ...filtered,
+    {
+      id: `${input.tournamentKey}-${input.year ?? input.date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      points: input.points,
+      date: input.date,
+      label: input.label,
+      tournamentKey: input.tournamentKey,
+      category: input.category,
+      year: input.year,
+      week: input.week,
+      round: input.round,
+      expiresAt: addWeeks(input.date, RANKING_WINDOW_WEEKS),
+    },
+  ]
+}
+
+/** Agrega una entrada de puntos simple con expiración (para el ranking inicial / bonus base). */
 export function addPointsEntry(
   history: PointsEntry[],
   points: number,
@@ -37,7 +141,13 @@ export function addPointsEntry(
   if (points === 0) return history
   return [
     ...history,
-    { id: `${label}-${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, points, date, label },
+    {
+      id: `${label}-${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      points,
+      date,
+      label,
+      expiresAt: addWeeks(date, RANKING_WINDOW_WEEKS),
+    },
   ]
 }
  
@@ -407,19 +517,3 @@ export function checkAnnualProgression(career: CareerState): CareerState {
 
 }
 
-/** Devuelve los puntos que vencen en las próximas N semanas */
-export function getExpiringPoints(
-  history: PointsEntry[],
-  currentDate: string,
-  weeksAhead: number = 8
-): PointsEntry[] {
-  const cutoff = addWeeks(currentDate, -RANKING_WINDOW_WEEKS)
-  const futureWindow = addWeeks(currentDate, weeksAhead - RANKING_WINDOW_WEEKS)
-  return history
-    .filter(e => e.date > cutoff && e.date <= addWeeks(currentDate, weeksAhead - RANKING_WINDOW_WEEKS + RANKING_WINDOW_WEEKS))
-    .filter(e => {
-      const expiryDate = addWeeks(e.date, RANKING_WINDOW_WEEKS)
-      return expiryDate > currentDate && expiryDate <= addWeeks(currentDate, weeksAhead)
-    })
-    .sort((a, b) => a.date.localeCompare(b.date))
-}
