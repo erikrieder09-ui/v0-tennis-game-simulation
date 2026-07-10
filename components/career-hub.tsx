@@ -10,7 +10,7 @@ import {
 } from "@/lib/career"
 import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament } from "@/lib/calendar"
 import { getRankings, evolveRoster } from "@/lib/rivals"
-import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig } from "@/lib/match-engine"
+import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig, randomSeed } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
 import { ATTRIBUTE_LABELS } from "@/lib/types"
 import {
@@ -225,6 +225,7 @@ interface DrawMatch {
   isUser: boolean
   group?: "A" | "B"
   phase?: "group" | "semifinal" | "final"
+  seed?: number
 }
 
 /**
@@ -342,14 +343,15 @@ function simNonUserMatches(
 ): DrawMatch[] {
   return matches.map(m => {
     if (m.isUser || m.winner || !m.p1 || !m.p2) return m
+    const seed = randomSeed()
     const config: MatchConfig = {
       player1: m.p1, player2: m.p2,
       surface: surface as any,
       bestOf: bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
     }
-    const result = simulateFullMatch(config)
+    const result = simulateFullMatch(config, seed)
     const w = result.winner === 1 ? m.p1 : m.p2
-    return { ...m, winner: w, score: formatMatchScore(result, 1) }
+    return { ...m, winner: w, score: formatMatchScore(result, 1), seed }
   })
 }
 
@@ -592,13 +594,14 @@ function simulateRoundRobinToChampion(matches: DrawMatch[], surface: string, bes
 /*  Match Sim UI                                                               */
 /* -------------------------------------------------------------------------- */
 
-function MatchSimUI({ config, userIs, onEnd, spectator = false }: {
+function MatchSimUI({ config, userIs, onEnd, spectator = false, seed }: {
   config: MatchConfig
   userIs: 1 | 2
   onEnd: (state: MatchState) => void
   spectator?: boolean
+  seed?: number
 }) {
-  const [state, setState] = useState<MatchState>(() => createMatchState(config))
+  const [state, setState] = useState<MatchState>(() => createMatchState(config, seed))
   const [log, setLog] = useState<string[]>(["El partido está por comenzar..."])
   const [simming, setSimming] = useState(false)
   const [autoSimulate, setAutoSimulate] = useState<boolean | null>(null)
@@ -660,8 +663,8 @@ function MatchSimUI({ config, userIs, onEnd, spectator = false }: {
     if (s.over) onEnd(s)
   }
 
-  function doFast() {
-    const final = simulateFullMatch(config)
+   function doFast() {
+    const final = simulateFullMatch(config, seed)
     setState(final)
     setLog([`Resultado rápido: ${formatMatchScore(final, userIs)}`])
     onEnd(final)
@@ -935,7 +938,7 @@ useEffect(() => {
 
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
-  const [spectatorMatch, setSpectatorMatch] = useState<{ config: MatchConfig; matchId: string } | null>(null)
+  const [spectatorMatch, setSpectatorMatch] = useState<{ config: MatchConfig; matchId: string; seed?: number } | null>(null)
 
   const userRival: Rival = {
     id: "USER",
@@ -1243,15 +1246,16 @@ rivalPalmares: bonusUpdate
     if (pendingGroup.length > 0) {
       const nextRound = Math.min(...pendingGroup.map(m => m.round))
       current = current.map(m => {
-        if (m.phase !== "group" || m.round !== nextRound || m.winner || m.isUser || !m.p1 || !m.p2) return m
-        const config: MatchConfig = {
-          player1: m.p1, player2: m.p2,
-          surface: selectedT.surface as any,
-          bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
-        }
-        const result = simulateFullMatch(config)
-        return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1) }
-      })
+  if (m.phase !== "group" || m.round !== nextRound || m.winner || m.isUser || !m.p1 || !m.p2) return m
+  const seed = randomSeed()
+  const config: MatchConfig = {
+    player1: m.p1, player2: m.p2,
+    surface: selectedT.surface as any,
+    bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+  }
+  const result = simulateFullMatch(config, seed)
+  return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1), seed }
+})
     }
 
     current = advanceFromGroupStage(current, selectedT.surface, bestOf)
@@ -2226,19 +2230,19 @@ function SeasonSummaryModal({ stats, onClose }: {
   matches={drawMatches}
   onUserMatchClick={handleUserMatchClick}
   onSpectatorClick={(m) => {
-    if (!selectedT || !m.p1 || !m.p2) return
-    const info = CATEGORY_INFO[selectedT.category]
-    const config: MatchConfig = {
-      player1: m.p1,
-      player2: m.p2,
-      surface: selectedT.surface as any,
-      bestOf: info.bestOf,
-      finalSetTiebreak: true,
-      finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
-    }
-    setSpectatorMatch({ config, matchId: m.id })
-    setView("match")
-  }}
+  if (!selectedT || !m.p1 || !m.p2) return
+  const info = CATEGORY_INFO[selectedT.category]
+  const config: MatchConfig = {
+    player1: m.p1,
+    player2: m.p2,
+    surface: selectedT.surface as any,
+    bestOf: info.bestOf,
+    finalSetTiebreak: true,
+    finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
+  }
+  setSpectatorMatch({ config, matchId: m.id, seed: m.seed })
+  setView("match")
+}}
 />
         </div>
       )}
@@ -2381,13 +2385,14 @@ function SeasonSummaryModal({ stats, onClose }: {
   </>
 )}
           {spectatorMatch && (
-            <MatchSimUI
-              config={spectatorMatch.config}
-              userIs={1}
-              spectator={true}
-              onEnd={() => { setSpectatorMatch(null); setView("draw") }}
-            />
-          )}
+  <MatchSimUI
+    config={spectatorMatch.config}
+    userIs={1}
+    spectator={true}
+    seed={spectatorMatch.seed}
+    onEnd={() => { setSpectatorMatch(null); setView("draw") }}
+  />
+)}
           {matchResult && activeMatch && (
             <Button className="w-full" onClick={() => { setActiveMatch(null); setView("draw") }}>
               Volver al cuadro
