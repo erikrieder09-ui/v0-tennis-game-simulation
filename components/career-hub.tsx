@@ -23,6 +23,7 @@ import {
   initDavisCup, simulateDavisSeries, advanceDavisRound,
   checkUserInvitation, isDavisRoundPlayable, type DavisCupState, type DavisSeries,
 } from "@/lib/davis-cup"
+import { H2HBadge } from "./h2h-badge"
 
 
 
@@ -1204,6 +1205,9 @@ rivalPalmares: bonusUpdate
         opponent: activeMatch.userIs === 1
           ? `${activeMatch.config.player2.firstName} ${activeMatch.config.player2.lastName}`
           : `${activeMatch.config.player1.firstName} ${activeMatch.config.player1.lastName}`,
+          opponentId: activeMatch.userIs === 1
+          ? activeMatch.config.player2.id
+          : activeMatch.config.player1.id,
         opponentRank: activeMatch.userIs === 1 ? activeMatch.config.player2.rank : activeMatch.config.player1.rank,
         scoreline: score,
         won: userWon,
@@ -2332,12 +2336,18 @@ function SeasonSummaryModal({ stats, onClose }: {
             </div>
           </div>
           {activeMatch && (
-            <MatchSimUI
-              config={activeMatch.config}
-              userIs={activeMatch.userIs}
-              onEnd={handleMatchEnd}
-            />
-          )}
+  <>
+    <H2HBadge
+      opponent={activeMatch.userIs === 1 ? activeMatch.config.player2 : activeMatch.config.player1}
+      history={career.history}
+    />
+    <MatchSimUI
+      config={activeMatch.config}
+      userIs={activeMatch.userIs}
+      onEnd={handleMatchEnd}
+    />
+  </>
+)}
           {spectatorMatch && (
             <MatchSimUI
               config={spectatorMatch.config}

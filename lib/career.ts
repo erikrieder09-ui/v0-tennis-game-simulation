@@ -161,6 +161,7 @@ export interface MatchRecord {
   tournament: string
   round: string
   opponent: string
+  opponentId: string
   opponentRank: number
   scoreline: string
   won: boolean
@@ -530,4 +531,30 @@ export function getExpiringPoints(
       return expiry > currentDate && expiry <= horizon
     })
     .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export interface H2HStats {
+  opponentId: string
+  wins: number
+  losses: number
+  totalMatches: number
+  bySurface: Partial<Record<Surface, { wins: number; losses: number }>>
+  lastMeetings: MatchRecord[]
+}
+
+export function getH2H (history: MatchRecord[], opponentId: string): H2HStats {
+  const matches = history.filter(m => m.opponentId === opponentId)
+  const bySurface: Partial<Record<Surface, { wins: number; losses: number }>> = {}
+  let wins = 0
+  let losses = 0
+  for (const m of matches) {
+    if (m.won) wins++
+    else losses++
+    const s = bySurface[m.surface] ?? { wins: 0, losses: 0 }
+    if (m.won) s.wins++
+    else s.losses++
+    bySurface[m.surface] = s
+  }
+  const lastMeetings = [...matches].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
+  return { opponentId, wins, losses, totalMatches: matches.length, bySurface, lastMeetings }
 }

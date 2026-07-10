@@ -5,6 +5,7 @@ import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { computeOverall } from "@/lib/attributes"
 import { divisionForRank, getRankings } from "@/lib/rivals"
+import type { MatchRecord } from "@/lib/career"
 import {
   getNationality,
   PLAY_STYLES,
@@ -14,6 +15,7 @@ import {
   type Rival,
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { H2HModal } from "./h2h-modal"
 
 const DIVISION_META: Record<Division, { label: string; cls: string }> = {
   "grand-slam": { label: "Grand Slam", cls: "bg-primary/20 text-primary" },
@@ -43,9 +45,16 @@ interface Row extends Rival {
   isUser?: boolean
 }
 
-export function RankingsTable({ player }: { player: PlayerProfile }) {
+interface RankingsTableProps {
+  player: PlayerProfile
+  /** historial de partidos del usuario, para poder mostrar el H2H al hacer click en un rival */
+  history?: MatchRecord[]
+}
+
+export function RankingsTable({ player, history = [] }: RankingsTableProps) {
   const [filter, setFilter] = useState<"all" | Division>("all")
   const [query, setQuery] = useState("")
+  const [selectedRival, setSelectedRival] = useState<Row | null>(null)
 
   const rows = useMemo<Row[]>(() => {
     const base = getRankings(player.tour)
@@ -53,25 +62,28 @@ export function RankingsTable({ player }: { player: PlayerProfile }) {
 
     // Insert the user's player into the ladder ordered by overall.
     const userRow: Row = {
-      id: "USER",
-      tour: player.tour,
-      firstName: player.firstName,
-      lastName: player.lastName,
-      nationality: player.nationality,
-      age: player.age,
-      handedness: player.handedness,
-      backhand: player.backhand,
-      height: player.height,
-      weight: player.weight,
-      playStyle: player.playStyle,
-      attributes: player.attributes,
-      overall: userOverall,
-      rank: 0,
-      points: 0,
-      favSurface: "hard",
-      injuryProneness: 20,
-      isUser: true,
-    }
+  id: "USER",
+  tour: player.tour,
+  firstName: player.firstName,
+  lastName: player.lastName,
+  nationality: player.nationality,
+  age: player.age,
+  handedness: player.handedness,
+  backhand: player.backhand,
+  height: player.height,
+  weight: player.weight,
+  playStyle: player.playStyle,
+  attributes: player.attributes,
+  overall: userOverall,
+  rank: 0,
+  points: 0,
+  favSurface: "hard",
+  injuryProneness: 20,
+  currentAbility: userOverall,
+  potentialAbility: userOverall + 5,
+  retirementDate: null,
+  isUser: true,
+}
 
     const merged = [...base, userRow].sort(
       (a, b) => b.overall - a.overall || a.lastName.localeCompare(b.lastName),
@@ -156,9 +168,11 @@ export function RankingsTable({ player }: { player: PlayerProfile }) {
             return (
               <div
                 key={r.id}
+                onClick={() => !r.isUser && setSelectedRival(r)}
                 className={cn(
                   "grid grid-cols-[40px_1fr_56px] items-center gap-3 border-b border-border/60 px-4 py-3 text-sm last:border-0 md:grid-cols-[48px_1fr_120px_88px_64px_84px]",
                   r.isUser && "bg-primary/10",
+                  !r.isUser && "cursor-pointer hover:bg-secondary/40",
                 )}
               >
                 <span className="font-mono font-bold tabular-nums">{r.rank}</span>
@@ -202,6 +216,16 @@ export function RankingsTable({ player }: { player: PlayerProfile }) {
           )}
         </div>
       </div>
+
+      {selectedRival && (
+        <H2HModal
+          opponentId={selectedRival.id}
+          opponentName={`${selectedRival.firstName} ${selectedRival.lastName}`}
+          opponentNationality={selectedRival.nationality}
+          history={history}
+          onClose={() => setSelectedRival(null)}
+        />
+      )}
     </div>
   )
 }
