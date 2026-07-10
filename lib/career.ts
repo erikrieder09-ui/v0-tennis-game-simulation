@@ -197,6 +197,8 @@ export interface CareerState {
   busyPlayers: string[]
   /** resultado final guardado por torneo, para que no se regenere cada vez que se entra */
   tournamentResults: Record<string, any>
+  /** torneo elegido para JUGAR en cada semana (fecha ISO → tournamentId). Bloquea jugar 2 a la vez. */
+activeTournamentByWeek: Record<string, string>
   /** historial de puntos extra ganados por rivales, con fecha — también rolling 52 semanas */
   rivalBonusHistory: Record<string, PointsEntry[]>
   /** sistema de progresión: nivel y XP del jugador */
@@ -265,6 +267,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     history: [],
     log: ["Arrancás tu carrera profesional. ¡A escalar el ranking!"],
     busyPlayers: [],
+    activeTournamentByWeek: {},
     tournamentResults: {},
     rivalBonusHistory: {},
     level: 1,
