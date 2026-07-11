@@ -226,6 +226,7 @@ interface DrawMatch {
   group?: "A" | "B"
   phase?: "group" | "semifinal" | "final"
   seed?: number
+  revealed?: boolean
 }
 
 /**
@@ -351,7 +352,7 @@ function simNonUserMatches(
     }
     const result = simulateFullMatch(config, seed)
     const w = result.winner === 1 ? m.p1 : m.p2
-    return { ...m, winner: w, score: formatMatchScore(result, 1), seed }
+    return { ...m, winner: w, score: formatMatchScore(result, 1), seed, revealed: false }
   })
 }
 
@@ -770,10 +771,11 @@ function MatchSimUI({ config, userIs, onEnd, spectator = false, seed }: {
 /*  Draw viewer                                                                */
 /* -------------------------------------------------------------------------- */
 
-function DrawViewer({ matches, onUserMatchClick, onSpectatorClick }: { 
+function DrawViewer({ matches, onUserMatchClick, onSpectatorClick, onQuickReveal }: {
   matches: DrawMatch[]
   onUserMatchClick: (m: DrawMatch) => void
   onSpectatorClick?: (m: DrawMatch) => void
+  onQuickReveal?: (m: DrawMatch) => void
 }) {
   const isRoundRobin = matches.some(m => m.phase === "group")
 
@@ -783,24 +785,57 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick }: {
     const semis = matches.filter(m => m.phase === "semifinal")
     const final = matches.filter(m => m.phase === "final")
 
-    const MatchCard = ({ m }: { m: DrawMatch }) => (
-      <div
-        className={`border rounded-lg overflow-hidden w-44 text-xs
-          ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
-          ${m.winner ? "opacity-90" : ""}
-        `}
-        onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
-      >
-        {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
-          <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
-            <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
-            <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+    const MatchCard = ({ m }: { m: DrawMatch }) => {
+      const hidden = !!m.winner && !m.isUser && !m.revealed
+
+      if (hidden) {
+        return (
+          <div className="border border-zinc-700 bg-zinc-900 rounded-lg overflow-hidden w-44 text-xs">
+            {[m.p1, m.p2].map((rival, i) => (
+              <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} text-zinc-400`}>
+                <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
+                <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+              </div>
+            ))}
+            <div className="flex divide-x divide-zinc-800 border-t border-zinc-800">
+              <button
+                type="button"
+                className="flex-1 px-1 py-1.5 text-[10px] font-semibold text-yellow-400 hover:bg-zinc-800"
+                onClick={() => onSpectatorClick?.(m)}
+              >
+                👁 En vivo
+              </button>
+              <button
+                type="button"
+                className="flex-1 px-1 py-1.5 text-[10px] font-semibold text-zinc-400 hover:bg-zinc-800"
+                onClick={() => onQuickReveal?.(m)}
+              >
+                ⚡ Rápido
+              </button>
+            </div>
           </div>
-        ))}
-        {m.score && <div className="px-2 py-0.5 text-[10px] text-zinc-500 border-t border-zinc-800">{m.score}</div>}
-        {m.isUser && !m.winner && <div className="px-2 py-1 text-[10px] text-yellow-400 border-t border-yellow-500/30">▶ Jugar partido</div>}
-      </div>
-    )
+        )
+      }
+
+      return (
+        <div
+          className={`border rounded-lg overflow-hidden w-44 text-xs
+            ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
+            ${m.winner ? "opacity-90" : ""}
+          `}
+          onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
+        >
+          {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
+            <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
+              <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
+              <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+            </div>
+          ))}
+          {m.score && <div className="px-2 py-0.5 text-[10px] text-zinc-500 border-t border-zinc-800">{m.score}</div>}
+          {m.isUser && !m.winner && <div className="px-2 py-1 text-[10px] text-yellow-400 border-t border-yellow-500/30">▶ Jugar partido</div>}
+        </div>
+      )
+    }
 
     const rounds = [0, 1, 2]
 
@@ -872,25 +907,58 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick }: {
               <div className="text-xs font-bold text-zinc-400 text-center mb-1 w-40">
                 {roundLabels[r] ?? `Ronda ${r + 1}`}
               </div>
-              {roundMatches.map(m => (
-                <div
-                  key={m.id}
-                  className={`border rounded-lg overflow-hidden w-40 text-xs
-    ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : m.winner ? "border-zinc-700 bg-zinc-900 cursor-pointer hover:border-zinc-500" : "border-zinc-700 bg-zinc-900"}
-                    ${m.winner ? "opacity-90" : ""}
-                  `}
-                  onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : (!m.isUser && m.winner && onSpectatorClick) ? () => onSpectatorClick(m) : undefined}
-                >
-                  {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
-                    <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
-                      <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
-                      <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+              {roundMatches.map(m => {
+                const hidden = !!m.winner && !m.isUser && !m.revealed
+
+                if (hidden) {
+                  return (
+                    <div key={m.id} className="border border-zinc-700 bg-zinc-900 rounded-lg overflow-hidden w-40 text-xs">
+                      {[m.p1, m.p2].map((rival, i) => (
+                        <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} text-zinc-400`}>
+                          <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
+                          <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+                        </div>
+                      ))}
+                      <div className="flex divide-x divide-zinc-800 border-t border-zinc-800">
+                        <button
+                          type="button"
+                          className="flex-1 px-1 py-1.5 text-[10px] font-semibold text-yellow-400 hover:bg-zinc-800"
+                          onClick={() => onSpectatorClick?.(m)}
+                        >
+                          👁 En vivo
+                        </button>
+                        <button
+                          type="button"
+                          className="flex-1 px-1 py-1.5 text-[10px] font-semibold text-zinc-400 hover:bg-zinc-800"
+                          onClick={() => onQuickReveal?.(m)}
+                        >
+                          ⚡ Rápido
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                  {m.score && <div className="px-2 py-0.5 text-[10px] text-zinc-500 border-t border-zinc-800">{m.score}</div>}
-                  {m.isUser && !m.winner && <div className="px-2 py-1 text-[10px] text-yellow-400 border-t border-yellow-500/30">▶ Jugar partido</div>}
-                </div>
-              ))}
+                  )
+                }
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`border rounded-lg overflow-hidden w-40 text-xs
+      ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
+                      ${m.winner ? "opacity-90" : ""}
+                    `}
+                    onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
+                  >
+                    {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
+                      <div key={i} className={`flex items-center gap-1 px-2 py-1.5 ${i === 0 ? "border-b border-zinc-800" : ""} ${rival?.id === "USER" ? "text-yellow-300" : w ? "text-white font-semibold" : "text-zinc-400"}`}>
+                        <span className="w-4 text-zinc-600 text-[10px]">{rival?.rank ?? "—"}</span>
+                        <span className="flex-1 truncate">{rival ? `${rival.firstName[0]}. ${rival.lastName}` : "TBD"}</span>
+                      </div>
+                    ))}
+                    {m.score && <div className="px-2 py-0.5 text-[10px] text-zinc-500 border-t border-zinc-800">{m.score}</div>}
+                    {m.isUser && !m.winner && <div className="px-2 py-1 text-[10px] text-yellow-400 border-t border-yellow-500/30">▶ Jugar partido</div>}
+                  </div>
+                )
+              })}
             </div>
           )
         })}
@@ -898,6 +966,7 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick }: {
     </div>
   )
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*  Main CareerHub component                                                   */
@@ -984,6 +1053,18 @@ useEffect(() => {
     return
   }
 
+  function revealMatch(matchId: string) {
+  if (!selectedT) return
+  setDrawMatches(prev => {
+    const updated = prev.map(m => m.id === matchId ? { ...m, revealed: true } : m)
+    setCareer(c => ({
+      ...c,
+      tournamentResults: { ...c.tournamentResults, [selectedT.id]: updated },
+    }))
+    return updated
+  })
+}
+
   // Si ya elegiste JUGAR otro torneo esta misma semana, este queda forzado a solo espectar
   const alreadyPlayingOther =
     !!career.activeTournamentByWeek[t.date] && career.activeTournamentByWeek[t.date] !== t.id
@@ -1066,6 +1147,18 @@ useEffect(() => {
   setDrawMatches(matches)
   setMatchResult(null)
   setView("draw")
+}
+
+function revealMatch(matchId: string) {
+  if (!selectedT) return
+  setDrawMatches(prev => {
+    const updated = prev.map(m => m.id === matchId ? { ...m, revealed: true } : m)
+    setCareer(c => ({
+      ...c,
+      tournamentResults: { ...c.tournamentResults, [selectedT.id]: updated },
+    }))
+    return updated
+  })
 }
 
   function handleUserMatchClick(m: DrawMatch) {
@@ -1254,7 +1347,7 @@ rivalPalmares: bonusUpdate
     bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
   }
   const result = simulateFullMatch(config, seed)
-  return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1), seed }
+  return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1), seed, revealed: false }
 })
     }
 
@@ -2230,19 +2323,20 @@ function SeasonSummaryModal({ stats, onClose }: {
   matches={drawMatches}
   onUserMatchClick={handleUserMatchClick}
   onSpectatorClick={(m) => {
-  if (!selectedT || !m.p1 || !m.p2) return
-  const info = CATEGORY_INFO[selectedT.category]
-  const config: MatchConfig = {
-    player1: m.p1,
-    player2: m.p2,
-    surface: selectedT.surface as any,
-    bestOf: info.bestOf,
-    finalSetTiebreak: true,
-    finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
-  }
-  setSpectatorMatch({ config, matchId: m.id, seed: m.seed })
-  setView("match")
-}}
+    if (!selectedT || !m.p1 || !m.p2) return
+    const info = CATEGORY_INFO[selectedT.category]
+    const config: MatchConfig = {
+      player1: m.p1,
+      player2: m.p2,
+      surface: selectedT.surface as any,
+      bestOf: info.bestOf,
+      finalSetTiebreak: true,
+      finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
+    }
+    setSpectatorMatch({ config, matchId: m.id, seed: m.seed })
+    setView("match")
+  }}
+  onQuickReveal={(m) => revealMatch(m.id)}
 />
         </div>
       )}
@@ -2390,7 +2484,11 @@ function SeasonSummaryModal({ stats, onClose }: {
     userIs={1}
     spectator={true}
     seed={spectatorMatch.seed}
-    onEnd={() => { setSpectatorMatch(null); setView("draw") }}
+    onEnd={() => {
+      revealMatch(spectatorMatch.matchId)
+      setSpectatorMatch(null)
+      setView("draw")
+    }}
   />
 )}
           {matchResult && activeMatch && (

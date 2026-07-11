@@ -185,7 +185,7 @@ export function pointWinProbability(state: MatchState): number {
  
   // Convert score difference into a win probability for player 1
   const diff = score1 - score2
-  const prob = 1 / (1 + Math.pow(10, -diff / 15))
+  const prob = 1 / (1 + Math.pow(10, -diff / 28))
   return Math.min(0.95, Math.max(0.05, prob))
 }
  
