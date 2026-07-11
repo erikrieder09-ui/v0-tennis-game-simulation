@@ -906,8 +906,9 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick, onQuickReveal
     )
   }
 
-  const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b)
+ const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b)
   const roundLabels = ["1ª Ronda", "2ª Ronda", "3ª Ronda", "4ª Ronda", "Cuartos", "Semifinal", "Final"]
+  const globalMaxRound = Math.max(...matches.map(m => m.round))
 
   return (
     <div className="overflow-x-auto pb-4">
@@ -920,7 +921,9 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick, onQuickReveal
                 {roundLabels[r] ?? `Ronda ${r + 1}`}
               </div>
               {roundMatches.map(m => {
-                const hidden = !!m.winner && !m.isUser && !m.revealed
+                // Solo la ronda más reciente queda "sin revelar" — las rondas ya superadas
+                // muestran el resultado directo, no tiene sentido seguir ocultándolas
+                const hidden = !!m.winner && !m.isUser && !m.revealed && m.round === globalMaxRound
 
                 if (hidden) {
                   return (
@@ -1859,22 +1862,38 @@ function SeasonSummaryModal({ stats, onClose }: {
                               doubles: "Dobles", single3: "Singles 3", single4: "Singles 4"
                             }
                             const pendingUserMatch = series.matches.find(m => m.isUser && !m.winner)
-                            if (!pendingUserMatch) return null
 
-                            return (
-                              <Button
-                                size="sm"
-                                className="mt-2 w-full"
-                                onClick={() => {
-                                  setActiveDavisSeries(series)
-                                  setActiveDavisMatchType(pendingUserMatch.type)
-                                  setView("davis-match")
-                                }}
-                              >
-                                ▶ Jugar {TYPE_LABELS[pendingUserMatch.type]}
-                              </Button>
-                            )
+                            if (pendingUserMatch) {
+                              return (
+                                <Button
+                                  size="sm"
+                                  className="mt-2 w-full"
+                                  onClick={() => {
+                                    setActiveDavisSeries(series)
+                                    setActiveDavisMatchType(pendingUserMatch.type)
+                                    setView("davis-match")
+                                  }}
+                                >
+                                  ▶ Jugar {TYPE_LABELS[pendingUserMatch.type]}
+                                </Button>
+                              )
+                            }
+
+                            // Si la serie ya se simuló pero el usuario no tiene ningún partido asignado,
+                            // es porque quedó como reserva (3°/4° del equipo) — avisamos en vez de mostrar nada
+                            const seriesSimulated = series.matches.length > 0
+                            const userHasMatchInSeries = series.matches.some(m => m.isUser)
+                            if (seriesSimulated && !userHasMatchInSeries) {
+                              return (
+                                <div className="mt-2 text-[10px] text-zinc-500 italic">
+                                  🪑 Quedaste como reserva para esta serie — no jugás partidos individuales acá.
+                                </div>
+                              )
+                            }
+
+                            return null
                           })()}
+
                           {series.matches.filter(m => m.winner).length > 0 && (
                             <div className="mt-2 space-y-1">
                               {series.matches.map((m, mi) => {

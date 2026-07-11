@@ -180,13 +180,13 @@ export function pointWinProbability(state: MatchState): number {
   }
  
   // Random variation (allows upsets)
-  score1 += (rng() - 0.5) * 4
-  score2 += (rng() - 0.5) * 4
+  score1 += (rng() - 0.5) * 8
+  score2 += (rng() - 0.5) * 8
  
   // Convert score difference into a win probability for player 1
   const diff = score1 - score2
-  const prob = 1 / (1 + Math.pow(10, -diff / 28))
-  return Math.min(0.95, Math.max(0.05, prob))
+  const prob = 1 / (1 + Math.pow(10, -diff / 130))
+  return Math.min(0.72, Math.max(0.28, prob))
 }
  
  
