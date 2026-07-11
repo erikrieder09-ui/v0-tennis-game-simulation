@@ -2336,7 +2336,7 @@ function SeasonSummaryModal({ stats, onClose }: {
               )
             }
 
-            if (!matchResult) return null
+            
 
             const maxR = Math.max(...drawMatches.map(m => m.round))
             const roundMatches = drawMatches.filter(m => m.round === maxR)
