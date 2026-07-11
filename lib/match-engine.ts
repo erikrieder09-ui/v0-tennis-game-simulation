@@ -161,32 +161,33 @@ export function pointWinProbability(state: MatchState): number {
   const { config, serving, rng } = state
   const p1 = config.player1
   const p2 = config.player2
- 
- 
+
   // Base from overall + surface
   let score1 = p1.overall + surfaceWeight(p1, config.surface)
   let score2 = p2.overall + surfaceWeight(p2, config.surface)
- 
+
   // Server advantage on grass
   if (config.surface === "grass") {
     if (serving === 1) score1 += 4
     else score2 += 4
   }
- 
+
   // Mentality in critical moments
   if (isMomentumCritical(state)) {
     score1 += (p1.attributes.mentality - 65) * 0.3
     score2 += (p2.attributes.mentality - 65) * 0.3
   }
- 
+
+  const variance = 4
+
   // Random variation (allows upsets)
-  score1 += (rng() - 0.5) * 8
-  score2 += (rng() - 0.5) * 8
- 
-  // Convert score difference into a win probability for player 1
+  score1 += (rng() - 0.5) * variance
+  score2 += (rng() - 0.5) * variance
+
   const diff = score1 - score2
   const prob = 1 / (1 + Math.pow(10, -diff / 130))
-  return Math.min(0.72, Math.max(0.28, prob))
+
+  return Math.min(0.96, Math.max(0.04, prob))
 }
  
  
