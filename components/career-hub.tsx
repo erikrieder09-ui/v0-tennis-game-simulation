@@ -2497,6 +2497,11 @@ function SeasonSummaryModal({ stats, onClose }: {
     />
   </>
 )}
+{matchResult && activeMatch && (
+  <Button className="w-full" onClick={() => { setActiveMatch(null); setMatchResult(null); setView("draw") }}>
+    Continuar →
+  </Button>
+)}
           {spectatorMatch && (
   <MatchSimUI
     config={spectatorMatch.config}
