@@ -369,44 +369,67 @@ function advanceDraw(
   bestOf: 3 | 5,
   category: Category
 ): DrawMatch[] {
-  const maxRound = Math.max(...matches.map(m => m.round))
-  const roundMatches = matches.filter(m => m.round === maxRound && m.winner)
-  if (roundMatches.length < 2) return matches
+  const roundsPresent = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b)
 
-  const next: DrawMatch[] = []
-  for (let i = 0; i < roundMatches.length; i += 2) {
-    const m1 = roundMatches[i]
-    const m2 = roundMatches[i + 1]
-    if (!m1 || !m2) continue
-    const p1 = m1.winner
-    const p2 = m2?.winner ?? null
-    const isUser = p1?.id === "USER" || p2?.id === "USER"
-    next.push({
-      id: `r${maxRound + 1}-${i / 2}`,
-      round: maxRound + 1,
-      position: i / 2,
-      p1, p2,
-      winner: null,
-      score: null,
-      isUser,
-    })
+  for (const r of roundsPresent) {
+    const roundMatches = matches.filter(m => m.round === r).sort((a, b) => a.position - b.position)
+    const nextRound = r + 1
+    const existingNext = matches.filter(m => m.round === nextRound)
+    const expectedNextCount = Math.floor(roundMatches.length / 2)
+
+    // Esta ronda ya fue avanzada del todo — seguir buscando una posterior
+    if (expectedNextCount === 0 || existingNext.length >= expectedNextCount) continue
+
+    // Esta es la ronda más temprana que falta avanzar, pero todavía no está completa
+    if (!roundMatches.every(m => m.winner)) return matches
+
+    const newMatches: DrawMatch[] = []
+    for (let i = 0; i < roundMatches.length; i += 2) {
+      const m1 = roundMatches[i]
+      const m2 = roundMatches[i + 1]
+      if (!m1 || !m2) continue
+      const nextPosition = i / 2
+      if (existingNext.some(m => m.position === nextPosition)) continue // ya existe, no duplicar
+
+      const p1 = m1.winner
+      const p2 = m2.winner
+      const isUser = p1?.id === "USER" || p2?.id === "USER"
+      const base = {
+        id: `r${nextRound}-${nextPosition}`,
+        round: nextRound,
+        position: nextPosition,
+        p1, p2,
+        winner: null,
+        score: null,
+        isUser,
+      }
+
+      if (isUser || !p1 || !p2) {
+        newMatches.push(base)
+      } else {
+        const seed = randomSeed()
+        const config: MatchConfig = {
+          player1: p1, player2: p2,
+          surface: surface as any,
+          bestOf,
+          finalSetTiebreak: true,
+          finalSetTiebreakAt: finalSetTiebreakAtFor(category),
+        }
+        const result = simulateFullMatch(config, seed)
+        newMatches.push({
+          ...base,
+          winner: result.winner === 1 ? p1 : p2,
+          score: formatMatchScore(result, 1),
+          seed,
+          revealed: false,
+        })
+      }
+    }
+
+    return [...matches, ...newMatches]
   }
 
-  const simmed = next.map(m => {
-    if (m.isUser || !m.p1 || !m.p2) return m
-    const seed = randomSeed()
-    const config: MatchConfig = {
-      player1: m.p1, player2: m.p2,
-      surface: surface as any,
-      bestOf: bestOf,
-      finalSetTiebreak: true,
-      finalSetTiebreakAt: finalSetTiebreakAtFor(category),
-    }
-    const result = simulateFullMatch(config, seed)
-    return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1), seed, revealed: false }
-  })
-
-  return [...matches, ...simmed]
+  return matches
 }
 
 /** Simula rondas completas hasta llegar al campeón (o hasta el límite de seguridad). */
