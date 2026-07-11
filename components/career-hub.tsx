@@ -8,7 +8,7 @@ import {
   addPointsEntry, recomputePoints, checkAnnualProgression, getExpiringPoints,
   type CareerState, type PointsEntry,
 } from "@/lib/career"
-import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament } from "@/lib/calendar"
+import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament, type Category } from "@/lib/calendar"
 import { getRankings, evolveRoster } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig, randomSeed } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
@@ -337,10 +337,15 @@ function buildDraw(
   return matches
 }
 
+function finalSetTiebreakAtFor(category: Category): number {
+  return category === "grand-slam" ? 7 : 10
+}
+
 function simNonUserMatches(
   matches: DrawMatch[],
   surface: string,
-  bestOf: 3 | 5
+  bestOf: 3 | 5,
+  category: Category
 ): DrawMatch[] {
   return matches.map(m => {
     if (m.isUser || m.winner || !m.p1 || !m.p2) return m
@@ -348,7 +353,9 @@ function simNonUserMatches(
     const config: MatchConfig = {
       player1: m.p1, player2: m.p2,
       surface: surface as any,
-      bestOf: bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+      bestOf: bestOf,
+      finalSetTiebreak: true,
+      finalSetTiebreakAt: finalSetTiebreakAtFor(category),
     }
     const result = simulateFullMatch(config, seed)
     const w = result.winner === 1 ? m.p1 : m.p2
@@ -359,7 +366,8 @@ function simNonUserMatches(
 function advanceDraw(
   matches: DrawMatch[],
   surface: string,
-  bestOf: 3 | 5
+  bestOf: 3 | 5,
+  category: Category
 ): DrawMatch[] {
   const maxRound = Math.max(...matches.map(m => m.round))
   const roundMatches = matches.filter(m => m.round === maxRound && m.winner)
@@ -386,13 +394,16 @@ function advanceDraw(
 
   const simmed = next.map(m => {
     if (m.isUser || !m.p1 || !m.p2) return m
+    const seed = randomSeed()
     const config: MatchConfig = {
       player1: m.p1, player2: m.p2,
       surface: surface as any,
-      bestOf: bestOf, finalSetTiebreak: true, finalSetTiebreakAt: 10,
+      bestOf: bestOf,
+      finalSetTiebreak: true,
+      finalSetTiebreakAt: finalSetTiebreakAtFor(category),
     }
-    const result = simulateFullMatch(config)
-    return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1) }
+    const result = simulateFullMatch(config, seed)
+    return { ...m, winner: result.winner === 1 ? m.p1 : m.p2, score: formatMatchScore(result, 1), seed, revealed: false }
   })
 
   return [...matches, ...simmed]
@@ -402,7 +413,8 @@ function advanceDraw(
 function simulateToChampion(
   matches: DrawMatch[],
   surface: string,
-  bestOf: 3 | 5
+  bestOf: 3 | 5,
+  category: Category
 ): DrawMatch[] {
   let current = matches
   let guard = 0
@@ -413,9 +425,9 @@ function simulateToChampion(
 
     const allDecided = roundMatches.every(m => m.winner)
     if (!allDecided) {
-      current = simNonUserMatches(current, surface, bestOf)
+      current = simNonUserMatches(current, surface, bestOf, category)
     } else {
-      current = advanceDraw(current, surface, bestOf)
+      current = advanceDraw(current, surface, bestOf, category)
     }
     guard++
   }
@@ -521,7 +533,7 @@ function computeGroupStandings(matches: DrawMatch[], group: "A" | "B"): GroupSta
   })
 }
 
-function advanceFromGroupStage(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
+function advanceFromGroupStage(matches: DrawMatch[], surface: string, bestOf: 3 | 5, category: Category): DrawMatch[] {
   const groupMatches = matches.filter(m => m.phase === "group")
   const allDecided = groupMatches.every(m => m.winner)
   if (!allDecided) return matches
@@ -548,12 +560,12 @@ function advanceFromGroupStage(matches: DrawMatch[], surface: string, bestOf: 3 
     phase: "semifinal",
   }
 
-  let updated = [...matches, sf1, sf2]
-  updated = simNonUserMatches(updated, surface, bestOf)
+   let updated = [...matches, sf1, sf2]
+  updated = simNonUserMatches(updated, surface, bestOf, category)
   return updated
 }
 
-function advanceFromSemifinals(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
+function advanceFromSemifinals(matches: DrawMatch[], surface: string, bestOf: 3 | 5, category: Category): DrawMatch[] {
   const semis = matches.filter(m => m.phase === "semifinal")
   if (semis.length < 2 || !semis.every(m => m.winner)) return matches
   if (matches.some(m => m.phase === "final")) return matches
@@ -566,25 +578,25 @@ function advanceFromSemifinals(matches: DrawMatch[], surface: string, bestOf: 3 
   }
 
   let updated = [...matches, final]
-  updated = simNonUserMatches(updated, surface, bestOf)
+  updated = simNonUserMatches(updated, surface, bestOf, category)
   return updated
 }
 
-function simulateRoundRobinToChampion(matches: DrawMatch[], surface: string, bestOf: 3 | 5): DrawMatch[] {
-  let current = simNonUserMatches(matches, surface, bestOf)
+function simulateRoundRobinToChampion(matches: DrawMatch[], surface: string, bestOf: 3 | 5, category: Category): DrawMatch[] {
+  let current = simNonUserMatches(matches, surface, bestOf, category)
   let guard = 0
   while (guard < 10) {
     const final = current.find(m => m.phase === "final")
     if (final?.winner) break
 
     const beforeLength = current.length
-    current = advanceFromGroupStage(current, surface, bestOf)
-    current = advanceFromSemifinals(current, surface, bestOf)
+    current = advanceFromGroupStage(current, surface, bestOf, category)
+    current = advanceFromSemifinals(current, surface, bestOf, category)
 
     if (current.length === beforeLength) {
       const pending = current.some(m => !m.winner)
       if (!pending) break
-      current = simNonUserMatches(current, surface, bestOf)
+      current = simNonUserMatches(current, surface, bestOf, category)
     }
     guard++
   }
@@ -1008,6 +1020,7 @@ useEffect(() => {
   const rivals = useMemo(() => getRankings(career.player.tour, career.date), [career.player.tour, career.date])
   const playerRank = getPlayerRank(career)
   const [spectatorMatch, setSpectatorMatch] = useState<{ config: MatchConfig; matchId: string; seed?: number } | null>(null)
+const [spectatorResult, setSpectatorResult] = useState<string | null>(null)
 
   const userRival: Rival = {
     id: "USER",
@@ -1053,18 +1066,6 @@ useEffect(() => {
     return
   }
 
-  function revealMatch(matchId: string) {
-  if (!selectedT) return
-  setDrawMatches(prev => {
-    const updated = prev.map(m => m.id === matchId ? { ...m, revealed: true } : m)
-    setCareer(c => ({
-      ...c,
-      tournamentResults: { ...c.tournamentResults, [selectedT.id]: updated },
-    }))
-    return updated
-  })
-}
-
   // Si ya elegiste JUGAR otro torneo esta misma semana, este queda forzado a solo espectar
   const alreadyPlayingOther =
     !!career.activeTournamentByWeek[t.date] && career.activeTournamentByWeek[t.date] !== t.id
@@ -1080,12 +1081,12 @@ useEffect(() => {
     let matches = t.category === "atp-finals"
       ? buildRoundRobinDraw(rivsForDraw, userRival, false)
       : buildDraw(t, rivsForDraw, userRival, false)
-    matches = simNonUserMatches(matches, t.surface, bestOf)
+    matches = simNonUserMatches(matches, t.surface, bestOf, t.category)
 
     if (autoSimulate === true) {
       matches = t.category === "atp-finals"
-        ? simulateRoundRobinToChampion(matches, t.surface, bestOf)
-        : simulateToChampion(matches, t.surface, bestOf)
+        ? simulateRoundRobinToChampion(matches, t.surface, bestOf, t.category)
+        : simulateToChampion(matches, t.surface, bestOf, t.category)
       const bonusMap = computeTournamentPointsBonus(matches, t.category, career.rivalBonusHistory, career.date)
       setCareer(prev => ({
         ...prev,
@@ -1141,7 +1142,7 @@ useEffect(() => {
     matches = buildDraw(t, qualyField, userRival, true, 16)
   }
 
-  matches = simNonUserMatches(matches, t.surface, bestOf)
+  matches = simNonUserMatches(matches, t.surface, bestOf, t.category)
 
   setSelectedT(t)
   setDrawMatches(matches)
@@ -1171,7 +1172,7 @@ function revealMatch(matchId: string) {
       surface: selectedT.surface as any,
       bestOf: info.bestOf,
       finalSetTiebreak: true,
-      finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
+      finalSetTiebreakAt: finalSetTiebreakAtFor(selectedT.category),
     }
     setActiveMatch({ config, userIs, drawMatchId: m.id })
     setMatchResult(null)
@@ -1216,8 +1217,8 @@ function revealMatch(matchId: string) {
 
     if (userWon) {
       finalMatches = selectedT.category === "atp-finals"
-        ? advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf), selectedT.surface, bestOf)
-        : advanceDraw(updatedMatches, selectedT.surface, bestOf)
+        ? advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf, selectedT.category), selectedT.surface, bestOf, selectedT.category)
+        : advanceDraw(updatedMatches, selectedT.surface, bestOf, selectedT.category)
 
       if (playingQualy) {
         const qualyRounds = Math.log2(16) - 1
@@ -1226,7 +1227,7 @@ function revealMatch(matchId: string) {
           const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
           const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
           let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, true)
-          mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
+          mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf, selectedT.category)
           finalMatches = mainMatches
         }
       }
@@ -1236,22 +1237,22 @@ function revealMatch(matchId: string) {
         const allRivals = buildLiveRanking(player.tour, career.points, player, career.rivalBonusHistory, career.date)
         const rivsForDraw = allRivals.filter(r => !r.isUser) as Rival[]
         let mainMatches = buildDraw(selectedT, rivsForDraw, userRival, false)
-        mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf)
+        mainMatches = simNonUserMatches(mainMatches, selectedT.surface, bestOf, selectedT.category)
         if (autoSimulate === true) {
-          mainMatches = simulateToChampion(mainMatches, selectedT.surface, bestOf)
+          mainMatches = simulateToChampion(mainMatches, selectedT.surface, bestOf, selectedT.category)
         }
         finalMatches = mainMatches
       } else if (selectedT.category === "atp-finals") {
         // Perdió un partido de grupo: el torneo sigue, solo avanza si el grupo está completo
-        finalMatches = advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf), selectedT.surface, bestOf)
+        finalMatches = advanceFromSemifinals(advanceFromGroupStage(updatedMatches, selectedT.surface, bestOf, selectedT.category), selectedT.surface, bestOf, selectedT.category)
         if (autoSimulate === true) {
-          finalMatches = simulateRoundRobinToChampion(finalMatches, selectedT.surface, bestOf)
+          finalMatches = simulateRoundRobinToChampion(finalMatches, selectedT.surface, bestOf, selectedT.category)
         }
       } else {
         // Perdió en cuadro principal: avanzar la ronda actual
-        finalMatches = advanceDraw(updatedMatches, selectedT.surface, bestOf)
+        finalMatches = advanceDraw(updatedMatches, selectedT.surface, bestOf, selectedT.category)
         if (autoSimulate === true) {
-          finalMatches = simulateToChampion(finalMatches, selectedT.surface, bestOf)
+          finalMatches = simulateToChampion(finalMatches, selectedT.surface, bestOf, selectedT.category)
         }
       }
     }
@@ -1351,8 +1352,8 @@ rivalPalmares: bonusUpdate
 })
     }
 
-    current = advanceFromGroupStage(current, selectedT.surface, bestOf)
-    current = advanceFromSemifinals(current, selectedT.surface, bestOf)
+    current = advanceFromGroupStage(current, selectedT.surface, bestOf, selectedT.category)
+    current = advanceFromSemifinals(current, selectedT.surface, bestOf, selectedT.category)
 
     const finalMatch = current.find(m => m.phase === "final")
     const finished = !!finalMatch?.winner
@@ -1378,13 +1379,13 @@ rivalPalmares: bonusUpdate
   const allDecided = roundMatches.every(m => m.winner)
 
   if (!allDecided) {
-    current = simNonUserMatches(current, selectedT.surface, bestOf)
+    current = simNonUserMatches(current, selectedT.surface, bestOf, selectedT.category)
     const nowAllDecided = current.filter(m => m.round === maxR).every(m => m.winner)
     if (nowAllDecided) {
-      current = advanceDraw(current, selectedT.surface, bestOf)
+      current = advanceDraw(current, selectedT.surface, bestOf, selectedT.category)
     }
   } else {
-    current = advanceDraw(current, selectedT.surface, bestOf)
+    current = advanceDraw(current, selectedT.surface, bestOf, selectedT.category)
   }
 
   const newMaxR = Math.max(...current.map(m => m.round))
@@ -1946,7 +1947,6 @@ function SeasonSummaryModal({ stats, onClose }: {
     </div>
   )
 })()}
-                    )
                   </div>
                 )
               ))}
@@ -2234,8 +2234,8 @@ function SeasonSummaryModal({ stats, onClose }: {
                     setAutoSimulate(true)
                     const bestOf = CATEGORY_INFO[selectedT.category].bestOf
                     const finished = selectedT.category === "atp-finals"
-                      ? simulateRoundRobinToChampion(drawMatches, selectedT.surface, bestOf)
-                      : simulateToChampion(drawMatches, selectedT.surface, bestOf)
+                      ? simulateRoundRobinToChampion(drawMatches, selectedT.surface, bestOf, selectedT.category)
+                      : simulateToChampion(drawMatches, selectedT.surface, bestOf, selectedT.category)
                     const bonusMap = computeTournamentPointsBonus(finished, selectedT.category, career.rivalBonusHistory, career.date)
                     setCareer(prev => ({
   ...prev,
@@ -2323,19 +2323,19 @@ function SeasonSummaryModal({ stats, onClose }: {
   matches={drawMatches}
   onUserMatchClick={handleUserMatchClick}
   onSpectatorClick={(m) => {
-    if (!selectedT || !m.p1 || !m.p2) return
-    const info = CATEGORY_INFO[selectedT.category]
-    const config: MatchConfig = {
-      player1: m.p1,
-      player2: m.p2,
-      surface: selectedT.surface as any,
-      bestOf: info.bestOf,
-      finalSetTiebreak: true,
-      finalSetTiebreakAt: selectedT.category === "grand-slam" ? 7 : 10,
-    }
-    setSpectatorMatch({ config, matchId: m.id, seed: m.seed })
-    setView("match")
-  }}
+  if (!selectedT || !m.p1 || !m.p2) return
+  const config: MatchConfig = {
+    player1: m.p1,
+    player2: m.p2,
+    surface: selectedT.surface as any,
+    bestOf: CATEGORY_INFO[selectedT.category].bestOf,
+    finalSetTiebreak: true,
+    finalSetTiebreakAt: finalSetTiebreakAtFor(selectedT.category),
+  }
+  setSpectatorResult(null)
+  setSpectatorMatch({ config, matchId: m.id, seed: m.seed })
+  setView("match")
+}}
   onQuickReveal={(m) => revealMatch(m.id)}
 />
         </div>
@@ -2484,18 +2484,17 @@ function SeasonSummaryModal({ stats, onClose }: {
     userIs={1}
     spectator={true}
     seed={spectatorMatch.seed}
-    onEnd={() => {
+    onEnd={(state) => {
       revealMatch(spectatorMatch.matchId)
-      setSpectatorMatch(null)
-      setView("draw")
+      setSpectatorResult(formatMatchScore(state, 1))
     }}
   />
 )}
-          {matchResult && activeMatch && (
-            <Button className="w-full" onClick={() => { setActiveMatch(null); setView("draw") }}>
-              Volver al cuadro
-            </Button>
-          )}
+{spectatorResult && spectatorMatch && (
+  <Button className="w-full" onClick={() => { setSpectatorMatch(null); setSpectatorResult(null); setView("draw") }}>
+    Volver al cuadro
+  </Button>
+)}
         </div>
       )}
    {/* RETIRE */}
@@ -2563,6 +2562,3 @@ function SeasonSummaryModal({ stats, onClose }: {
     </div>
   )
 }
-
-
-
