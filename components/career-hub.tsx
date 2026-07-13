@@ -1438,7 +1438,7 @@ rivalPalmares: bonusUpdate
 }
   
 
-  function advanceWeek() {
+ function advanceWeek() {
   const weekEnding = career.date // semana que se está cerrando
 
   setCareer(prev => {
@@ -1493,6 +1493,9 @@ rivalPalmares: bonusUpdate
     if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
       const completedYear = new Date(withBackgroundSims.lastProgressionDate).getFullYear()
 
+      // Evolucionar el roster ANTES de cortar con el return — antes esto quedaba inalcanzable
+      evolveRoster(withBackgroundSims.player.tour, next.date)
+
       setTimeout(() => setSeasonSummary({ ...withBackgroundSims.seasonStats, year: completedYear }), 100)
       return {
         ...next,
@@ -1516,11 +1519,6 @@ rivalPalmares: bonusUpdate
     const nextYear = new Date(next.date).getFullYear()
     if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
       return { ...next, davisCup: null }
-    }
-
-    // Si hubo progresión anual, evolucionamos el roster
-    if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
-      evolveRoster(withBackgroundSims.player.tour, next.date)
     }
 
     return next
