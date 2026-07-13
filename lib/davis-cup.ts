@@ -357,20 +357,23 @@ export function checkUserInvitation(
 
   // Ver si el usuario es mejor que alguno de los 4 del equipo
   const players = team.players
-  const worstInTeam = players[players.length - 1]
 
-  if (!worstInTeam || players.length < 4) {
-    return { invited: true, position: players.length, replacedPlayer: null }
-  }
+if (players.length < 4) {
+  // Aunque el equipo no esté completo, hay que ubicar al usuario según su ranking real,
+  // no simplemente al final — si es el mejor, tiene que entrar en posición 0
+  const position = players.findIndex(p => userRank < p.rank)
+  const targetPosition = position === -1 ? players.length : position
+  return { invited: true, position: targetPosition, replacedPlayer: null }
+}
 
-  if (userRank < worstInTeam.rank) {
-    // Encontrar la posición correcta según ranking
-    const position = players.findIndex(p => userRank < p.rank)
-    const targetPosition = position === -1 ? players.length - 1 : position
-    return { invited: true, position: targetPosition, replacedPlayer: players[targetPosition] }
-  }
+const worstInTeam = players[players.length - 1]
+if (userRank < worstInTeam.rank) {
+  const position = players.findIndex(p => userRank < p.rank)
+  const targetPosition = position === -1 ? players.length - 1 : position
+  return { invited: true, position: targetPosition, replacedPlayer: players[targetPosition] }
+}
 
-  return { invited: false, position: -1, replacedPlayer: null }
+return { invited: false, position: -1, replacedPlayer: null }
 }
 
 const DAVIS_ROUND_DATES: Record<number, string> = {

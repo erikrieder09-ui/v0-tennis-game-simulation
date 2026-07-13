@@ -333,14 +333,18 @@ function buildTour(tour: Tour): Rival[] {
 }
 
 let _cache: Partial<Record<Tour, Rival[]>> = {}
+let _evolvedCache: Partial<Record<Tour, Rival[]>> = {}
 
 /**
  * Devuelve el roster completo (incluye jugadores ya retirados a la fecha dada).
  * Usar getRankings() para el roster activo filtrado por currentDate.
  */
 function getFullRoster(tour: Tour): Rival[] {
-  if (!_cache[tour]) _cache[tour] = buildTour(tour)
-  return _cache[tour]!
+  if (!_cache[tour]) {
+    _cache[tour] = buildTour(tour)
+    _evolvedCache[tour] = _cache[tour]!.map(r => ({ ...r }))
+  }
+  return _evolvedCache[tour]!
 }
 
 /**
@@ -373,33 +377,47 @@ export function getRankings(tour: Tour, currentDate: string = SEASON_START): Riv
   const active = full.filter(r => !r.retirementDate || r.retirementDate > currentDate)
 
   if (active.length >= FIELD_SIZE) {
-    return active.slice(0, FIELD_SIZE)
+    const result = active.slice(0, FIELD_SIZE)
+    result.sort((a, b) => b.overall - a.overall || a.lastName.localeCompare(b.lastName))
+    result.forEach((r, i) => {
+      r.rank = i + 1
+      r.points = pointsForRank(i + 1)
+    })
+    return result
   }
 
-  // Generar reemplazos jóvenes determinísticos para completar el campo.
-  const rand = mulberry32(tour === "ATP" ? 0x5f3759 ^ 0x1234 : 0x9e3779 ^ 0x1234)
-  const replacements: Rival[] = []
-  let nextRank = active.length + 1
-  let genIndex = 0
-  while (active.length + replacements.length < FIELD_SIZE) {
-    const id = `${tour}-replacement-${genIndex}`
-    const r = generatedRival(tour, nextRank, rand, id)
-    // Jugadores de reemplazo entran jóvenes, como promesas nuevas.
-    r.age = 17 + Math.floor(rand() * 4) // 17-20
-    r.retirementDate = computeRetirementDate(r.age, rand)
-    replacements.push(r)
-    nextRank++
-    genIndex++
+  // Completar con reemplazos ya cacheados en _evolvedCache
+  const activeIds = new Set(active.map(r => r.id))
+  const cachedReplacements = (_evolvedCache[tour] ?? []).filter(
+    r => r.id.includes("replacement") && (!r.retirementDate || r.retirementDate > currentDate)
+  )
+
+  const needed = FIELD_SIZE - active.length - cachedReplacements.length
+  const newReplacements: Rival[] = []
+
+  if (needed > 0) {
+    const rand = mulberry32(
+      (tour === "ATP" ? 0x5f3759 : 0x9e3779) ^ 0x1234 ^ (_evolvedCache[tour]?.length ?? 0)
+    )
+    let genIndex = (_evolvedCache[tour]?.filter(r => r.id.includes("replacement")).length ?? 0)
+    for (let i = 0; i < needed; i++) {
+      const r = generatedRival(tour, active.length + cachedReplacements.length + i + 1, rand, `${tour}-replacement-${genIndex}`)
+      r.age = 17 + Math.floor(rand() * 4)
+      r.retirementDate = computeRetirementDate(r.age, rand)
+      newReplacements.push(r)
+      genIndex++
+    }
+    _evolvedCache[tour] = [...(_evolvedCache[tour] ?? []), ...newReplacements]
   }
 
-  const merged = [...active, ...replacements]
+  const merged = [...active, ...cachedReplacements, ...newReplacements]
   merged.sort((a, b) => b.overall - a.overall || a.lastName.localeCompare(b.lastName))
   merged.forEach((r, i) => {
     r.rank = i + 1
     r.points = pointsForRank(i + 1)
   })
 
-  return merged
+  return merged.slice(0, FIELD_SIZE)
 }
 
 export function divisionForRank(rank: number): import("./types").Division {
