@@ -274,6 +274,34 @@ function updateRivalPalmares(
   return updated
 }
 
+function buildUserRival(c: CareerState): Rival {
+  const overall = Math.round(
+    Object.values(c.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(c.player.attributes).length
+  )
+  return {
+    id: "USER",
+    tour: c.player.tour,
+    firstName: c.player.firstName,
+    lastName: c.player.lastName,
+    nationality: c.player.nationality,
+    age: c.player.age,
+    handedness: c.player.handedness,
+    backhand: c.player.backhand,
+    height: c.player.height,
+    weight: c.player.weight,
+    playStyle: c.player.playStyle,
+    attributes: c.player.attributes,
+    overall,
+    rank: getPlayerRank(c),
+    points: c.points,
+    favSurface: "hard",
+    injuryProneness: 20,
+    currentAbility: overall,
+    potentialAbility: overall + 10,
+    retirementDate: null,
+  }
+}
+
 function buildDraw(
   t: Tournament,
   rivals: Rival[],
@@ -1048,28 +1076,7 @@ useEffect(() => {
   const [spectatorMatch, setSpectatorMatch] = useState<{ config: MatchConfig; matchId: string; seed?: number } | null>(null)
 const [spectatorResult, setSpectatorResult] = useState<string | null>(null)
 
-  const userRival: Rival = {
-    id: "USER",
-    tour: career.player.tour,
-    firstName: career.player.firstName,
-    lastName: career.player.lastName,
-    nationality: career.player.nationality,
-    age: career.player.age,
-    handedness: career.player.handedness,
-    backhand: career.player.backhand,
-    height: career.player.height,
-    weight: career.player.weight,
-    playStyle: career.player.playStyle,
-    attributes: career.player.attributes,
-    overall: Math.round(Object.values(career.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(career.player.attributes).length),
-    rank: playerRank,
-    points: career.points,
-    favSurface: "hard",
-    injuryProneness: 20,
-    currentAbility: Math.round(Object.values(career.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(career.player.attributes).length),
-    potentialAbility: Math.round(Object.values(career.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(career.player.attributes).length) + 10,
-    retirementDate: null,
-  }
+  const userRival = buildUserRival(career)
 
   const upcoming = upcomingTournaments(career.date)
     .filter(t => !playedTournaments.has(t.id))
@@ -1432,55 +1439,93 @@ rivalPalmares: bonusUpdate
   
 
   function advanceWeek() {
-    setCareer(prev => {
-      const advanced: CareerState = {
-        ...prev,
-        date: addWeeks(prev.date, 1),
-        fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+  const weekEnding = career.date // semana que se está cerrando
+
+  setCareer(prev => {
+    // --- Simular en segundo plano los torneos de la semana que termina y que nunca se tocaron ---
+    let tournamentResults = { ...prev.tournamentResults }
+    let rivalBonusHistory = prev.rivalBonusHistory
+    let rivalPalmares = prev.rivalPalmares
+
+    const weekTournaments = getTournamentsOnDate(weekEnding)
+    if (weekTournaments.length > 0) {
+      const userRivalForSim = buildUserRival(prev)
+      for (const t of weekTournaments) {
+        if (tournamentResults[t.id]) continue // ya jugado o espectado, no lo tocamos
+
+        const allRivals = buildLiveRanking(prev.player.tour, prev.points, prev.player, rivalBonusHistory, weekEnding)
+        const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
+        const rivsForDraw = t.category === "atp-finals"
+          ? allNonUserRivals.sort((a, b) => a.rank - b.rank).slice(0, 8)
+          : getEligibleRivalsForTournament(t, allNonUserRivals, weekTournaments)
+
+        let matches = t.category === "atp-finals"
+          ? buildRoundRobinDraw(rivsForDraw, userRivalForSim, false)
+          : buildDraw(t, rivsForDraw, userRivalForSim, false)
+
+        matches = t.category === "atp-finals"
+          ? simulateRoundRobinToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+          : simulateToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+
+        tournamentResults[t.id] = matches
+        rivalBonusHistory = computeTournamentPointsBonus(matches, t.category, rivalBonusHistory, weekEnding)
+        rivalPalmares = updateRivalPalmares(matches, t.name, rivalPalmares)
       }
-      const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
-      const next = checkAnnualProgression({ ...advanced, points: recalculated })
+    }
 
-      // Detectar cambio de temporada
-      if (next.lastProgressionDate !== prev.lastProgressionDate) {
-        const completedYear = new Date(prev.lastProgressionDate).getFullYear()
-        const seasonSummaryData = next.seasonStats
+    const withBackgroundSims: CareerState = {
+      ...prev,
+      tournamentResults,
+      rivalBonusHistory,
+      rivalPalmares,
+    }
 
-        // Resetear stats de temporada y Copa Davis
-        setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
-        return {
-          ...next,
-          davisCup: null,
-          seasonStats: {
-            matchesWon: 0,
-            matchesLost: 0,
-            bestRank: getPlayerRank(next),
-            pointsEarned: 0,
-            year: completedYear + 1,
-          },
-          log: [
-            ...next.log,
-            `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`,
-          ],
-        }
+    // --- Lógica original de avance de semana, ahora sobre withBackgroundSims ---
+    const advanced: CareerState = {
+      ...withBackgroundSims,
+      date: addWeeks(withBackgroundSims.date, 1),
+      fitness: applyEnergy(withBackgroundSims.fitness, ENERGY_DELTA.rest),
+    }
+    const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
+    const next = checkAnnualProgression({ ...advanced, points: recalculated })
+
+    // Detectar cambio de temporada
+    if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
+      const completedYear = new Date(withBackgroundSims.lastProgressionDate).getFullYear()
+
+      setTimeout(() => setSeasonSummary({ ...withBackgroundSims.seasonStats, year: completedYear }), 100)
+      return {
+        ...next,
+        davisCup: null,
+        seasonStats: {
+          matchesWon: 0,
+          matchesLost: 0,
+          bestRank: getPlayerRank(next),
+          pointsEarned: 0,
+          year: completedYear + 1,
+        },
+        log: [
+          ...next.log,
+          `📊 Temporada ${completedYear}: ${withBackgroundSims.seasonStats.matchesWon}W/${withBackgroundSims.seasonStats.matchesLost}L · Mejor ranking: #${withBackgroundSims.seasonStats.bestRank} · ${withBackgroundSims.seasonStats.pointsEarned} puntos ganados`,
+        ],
       }
+    }
 
-      // Resetear Copa Davis al inicio de cada año nuevo (sin progresión)
-      const prevYear = new Date(prev.date).getFullYear()
-      const nextYear = new Date(next.date).getFullYear()
-      if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
-        return { ...next, davisCup: null }
-      }
+    // Resetear Copa Davis al inicio de cada año nuevo (sin progresión)
+    const prevYear = new Date(withBackgroundSims.date).getFullYear()
+    const nextYear = new Date(next.date).getFullYear()
+    if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
+      return { ...next, davisCup: null }
+    }
 
-      // Si hubo progresión anual (la fecha de última progresión cambió), evolucionamos el roster
-      if (next.lastProgressionDate !== prev.lastProgressionDate) {
-        evolveRoster(prev.player.tour, next.date)
-      }
+    // Si hubo progresión anual, evolucionamos el roster
+    if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
+      evolveRoster(withBackgroundSims.player.tour, next.date)
+    }
 
-      return next
-    })
-    
-  }
+    return next
+  })
+}
 
   function buyEnergyBottle() {
     if (career.money < BOTTLE_COST) return
