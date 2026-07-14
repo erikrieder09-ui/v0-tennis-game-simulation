@@ -275,9 +275,7 @@ function updateRivalPalmares(
 }
 
 function buildUserRival(c: CareerState): Rival {
-  const overall = Math.round(
-    Object.values(c.player.attributes).reduce((a, b) => a + b, 0) / Object.keys(c.player.attributes).length
-  )
+  const overall = computeOverall(c.player.attributes, c.player.playStyle)
   return {
     id: "USER",
     tour: c.player.tour,
