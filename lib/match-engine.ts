@@ -163,8 +163,10 @@ export function pointWinProbability(state: MatchState): number {
   const p2 = config.player2
 
   // Base from overall + surface
-  let score1 = p1.overall + surfaceWeight(p1, config.surface)
-  let score2 = p2.overall + surfaceWeight(p2, config.surface)
+ // Comprimir el OVR para reducir dominancia extrema
+  const compress = (ovr: number) => 50 + (ovr - 50) * 0.55
+  let score1 = compress(p1.overall) + surfaceWeight(p1, config.surface)
+  let score2 = compress(p2.overall) + surfaceWeight(p2, config.surface)
 
   // Server advantage on grass
   if (config.surface === "grass") {
