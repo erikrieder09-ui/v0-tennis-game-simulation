@@ -1194,9 +1194,9 @@ function revealMatch(matchId: string) {
   })
 }
 
-  function handleUserMatchClick(m: DrawMatch) {
-     console.log("USER OVR:", m.p1?.id === "USER" ? m.p1?.overall : m.p2?.overall)
-  console.log("RIVAL OVR:", m.p1?.id === "USER" ? m.p2?.overall : m.p1?.overall)
+    function handleUserMatchClick(m: DrawMatch) {
+  const rival = m.p1?.id === "USER" ? m.p2 : m.p1
+  console.log("rival.overall:", rival?.overall, "computeOverall:", rival ? computeOverall(rival.attributes, rival.playStyle) : "N/A")
     if (!selectedT || !m.p1 || !m.p2) return
     const userIs: 1 | 2 = m.p1.id === "USER" ? 1 : 2
     const info = CATEGORY_INFO[selectedT.category]
