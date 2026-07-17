@@ -181,8 +181,8 @@ let score2 = p2.overall + surfaceWeight(p2, config.surface)
   const variance = 4
 
   // Random variation (allows upsets)
-  score1 += (Math.random() - 0.5) * 14
-  score2 += (Math.random() - 0.5) * 14
+  score1 += (rng() - 0.5) * 14
+score2 += (rng() - 0.5) * 14
 
   const diff = score1 - score2
   const prob = 1 / (1 + Math.pow(10, -diff / 130))

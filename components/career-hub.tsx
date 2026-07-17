@@ -1010,6 +1010,7 @@ function DrawViewer({ matches, onUserMatchClick, onSpectatorClick, onQuickReveal
       ${m.isUser ? "border-yellow-500/60 bg-yellow-500/5 cursor-pointer hover:border-yellow-400" : "border-zinc-700 bg-zinc-900"}
                       ${m.winner ? "opacity-90" : ""}
                     `}
+                    
                     onClick={m.isUser && !m.winner ? () => onUserMatchClick(m) : undefined}
                   >
                     {[{ rival: m.p1, w: m.winner?.id === m.p1?.id }, { rival: m.p2, w: m.winner?.id === m.p2?.id }].map(({ rival, w }, i) => (
@@ -1194,6 +1195,8 @@ function revealMatch(matchId: string) {
 }
 
   function handleUserMatchClick(m: DrawMatch) {
+     console.log("USER OVR:", m.p1?.id === "USER" ? m.p1?.overall : m.p2?.overall)
+  console.log("RIVAL OVR:", m.p1?.id === "USER" ? m.p2?.overall : m.p1?.overall)
     if (!selectedT || !m.p1 || !m.p2) return
     const userIs: 1 | 2 = m.p1.id === "USER" ? 1 : 2
     const info = CATEGORY_INFO[selectedT.category]
@@ -1208,6 +1211,7 @@ function revealMatch(matchId: string) {
     setActiveMatch({ config, userIs, drawMatchId: m.id })
     setMatchResult(null)
     setView("match")
+    
   }
 
   function handleMatchEnd(state: MatchState) {
