@@ -1194,25 +1194,27 @@ function revealMatch(matchId: string) {
   })
 }
 
-    function handleUserMatchClick(m: DrawMatch) {
-  const rival = m.p1?.id === "USER" ? m.p2 : m.p1
-  console.log("rival.overall:", rival?.overall, "computeOverall:", rival ? computeOverall(rival.attributes, rival.playStyle) : "N/A")
-    if (!selectedT || !m.p1 || !m.p2) return
-    const userIs: 1 | 2 = m.p1.id === "USER" ? 1 : 2
-    const info = CATEGORY_INFO[selectedT.category]
-    const config: MatchConfig = {
-      player1: m.p1,
-      player2: m.p2,
-      surface: selectedT.surface as any,
-      bestOf: info.bestOf,
-      finalSetTiebreak: true,
-      finalSetTiebreakAt: finalSetTiebreakAtFor(selectedT.category),
-    }
-    setActiveMatch({ config, userIs, drawMatchId: m.id })
-    setMatchResult(null)
-    setView("match")
-    
+   function handleUserMatchClick(m: DrawMatch) {
+  if (!m.p1 || !m.p2 || !selectedT) return
+
+  // Recalcular overall de ambos jugadores antes de pasarlos al motor
+  const p1 = { ...m.p1, overall: computeOverall(m.p1.attributes, m.p1.playStyle) }
+  const p2 = { ...m.p2, overall: computeOverall(m.p2.attributes, m.p2.playStyle) }
+  const userIs = m.p1.id === "USER" ? 1 as const : 2 as const
+
+  const info = CATEGORY_INFO[selectedT.category]
+  const config: MatchConfig = {
+    player1: p1,
+    player2: p2,
+    surface: selectedT.surface as any,
+    bestOf: info.bestOf,
+    finalSetTiebreak: true,
+    finalSetTiebreakAt: finalSetTiebreakAtFor(selectedT.category),
   }
+  setActiveMatch({ config, userIs, drawMatchId: m.id })
+  setMatchResult(null)
+  setView("match")
+}
 
   function handleMatchEnd(state: MatchState) {
     if (!activeMatch || !selectedT) return
