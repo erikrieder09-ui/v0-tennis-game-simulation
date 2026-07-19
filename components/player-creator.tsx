@@ -39,6 +39,7 @@ interface Draft {
   weight: number
   age: number
   playStyle: PlayStyle | null
+  injuryProneness: 30
 }
 
 const DEFAULT_DRAFT: Draft = {
@@ -52,6 +53,7 @@ const DEFAULT_DRAFT: Draft = {
   weight: 78,
   age: 18,
   playStyle: null,
+  injuryProneness: 30,
 }
 
 function OptionCard({
@@ -205,8 +207,8 @@ export function PlayerCreator({
 
   const nat = NATIONALITIES.find((n) => n.code === draft.nationality)
   const styleLabel = PLAY_STYLES.find((s) => s.id === draft.playStyle)?.label
-
-  function finish() {
+  
+function finish() {
     if (!draft.playStyle) return
     onComplete({
       tour: draft.tour,
@@ -220,6 +222,11 @@ export function PlayerCreator({
       age: draft.age,
       playStyle: draft.playStyle,
       attributes: previewAttrs,
+      injuryProneness: draft.injuryProneness,
+      xp: 0,
+      level: 1,
+      energy: 100,
+      attributeCaps: {},
     })
   }
 

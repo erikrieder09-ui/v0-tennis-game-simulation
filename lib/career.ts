@@ -166,7 +166,17 @@ export interface MatchRecord {
   scoreline: string
   won: boolean
   surface: Surface
+  /** lesión activa, null si está sano */
+  injury: {
+    type: import("./injuries").InjuryType
+    label: string
+    weeksRemaining: number
+    recoveryWeeksRemaining: number
+    affectedAttributes: string[]
+    attributePenalty: number
+  } | null
 }
+
  
 export interface CareerState {
   player: PlayerProfile
@@ -188,7 +198,14 @@ export interface CareerState {
   fitness: number
   /** injury weeks remaining (0 = healthy) */
   injuryWeeksLeft: number
-  injuryLabel: string | null
+  injury: {
+    type: import("./injuries").InjuryType
+    label: string
+    weeksRemaining: number
+    recoveryWeeksRemaining: number
+    affectedAttributes: string[]
+    attributePenalty: number
+  } | null
   titles: number
   matchesWon: number
   matchesLost: number
@@ -270,6 +287,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     activeTournamentByWeek: {},
     tournamentResults: {},
     rivalBonusHistory: {},
+    injury: null,
     level: 1,
     xp: 0,
     spentAttributePoints: -5,
@@ -434,7 +452,7 @@ export function evolveAttributes(
   const changes: Partial<Record<keyof AttributeSet, number>> = {}
   const rate = progressionRate(age)
   const currentOverall = computeOverall(result, playStyle)
-  const estimatedPA = age <= 20 ? 90 : age <= 23 ? 85 : age <= 26 ? 80 : age <= 29 ? 75 : 65
+  const estimatedPA = age <= 20 ? 97 : age <= 23 ? 93 : age <= 26 ? 88 : age <= 29 ? 80 : 70
   const roomToGrow = Math.max(0, estimatedPA - currentOverall)
  
   if (age <= 30) {

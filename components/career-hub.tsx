@@ -24,6 +24,7 @@ import {
   checkUserInvitation, isDavisRoundPlayable, type DavisCupState, type DavisSeries,
 } from "@/lib/davis-cup"
 import { H2HBadge } from "./h2h-badge"
+import { rollInjury, getInjury, rollWeeksOut } from "@/lib/injuries"
 
 
 
@@ -1082,6 +1083,10 @@ const [spectatorResult, setSpectatorResult] = useState<string | null>(null)
     .slice(0, 12)
 
   function enterTournament(t: Tournament) {
+    if (career.injury && career.injury.weeksRemaining > 0) {
+    setCareer(prev => ({ ...prev, log: [...prev.log, "⚠️ No podés jugar — estás lesionado"] }))
+    return
+  }
   const status = entryStatus(t.category, playerRank)
   const bestOf = CATEGORY_INFO[t.category].bestOf
 
@@ -1485,11 +1490,52 @@ rivalPalmares: bonusUpdate
     }
 
     // --- Lógica original de avance de semana, ahora sobre withBackgroundSims ---
-    const advanced: CareerState = {
-      ...withBackgroundSims,
-      date: addWeeks(withBackgroundSims.date, 1),
-      fitness: applyEnergy(withBackgroundSims.fitness, ENERGY_DELTA.rest),
-    }
+    // Chequear si ya está lesionado — reducir semanas
+      if (prev.injury) {
+        const updatedInjury = prev.injury.weeksRemaining > 1
+          ? { ...prev.injury, weeksRemaining: prev.injury.weeksRemaining - 1 }
+          : prev.injury.recoveryWeeksRemaining > 0
+            ? { ...prev.injury, weeksRemaining: 0, recoveryWeeksRemaining: prev.injury.recoveryWeeksRemaining - 1 }
+            : null
+
+        const recoveredMsg = !updatedInjury && prev.injury
+          ? [`✅ Te recuperaste de la ${prev.injury.label}`]
+          : []
+
+        const advanced: CareerState = {
+          ...prev,
+          date: addWeeks(prev.date, 1),
+          fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+          injury: updatedInjury,
+          log: [...prev.log, ...recoveredMsg],
+        }
+        const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
+        const next = checkAnnualProgression({ ...advanced, points: recalculated })
+        if (next.lastProgressionDate !== prev.lastProgressionDate) {
+          const completedYear = new Date(prev.lastProgressionDate ?? prev.date).getFullYear()
+          setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
+          return {
+            ...next,
+            davisCup: null,
+            seasonStats: { matchesWon: 0, matchesLost: 0, bestRank: getPlayerRank(next), pointsEarned: 0, year: completedYear + 1 },
+            log: [...next.log, `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`],
+          }
+        }
+        const prevYear = new Date(prev.date).getFullYear()
+        const nextYear = new Date(next.date).getFullYear()
+        if (nextYear > prevYear && next.davisCup?.year !== nextYear) return { ...next, davisCup: null }
+        return next
+      }
+
+      // No está lesionado — chequear si se lesiona esta semana
+      const playedThisWeek = !!career.activeTournamentByWeek?.[prev.date]
+      const injuryType = rollInjury(prev.player.injuryProneness ?? 30, prev.fitness, playedThisWeek)
+
+      const advanced: CareerState = {
+        ...prev,
+        date: addWeeks(prev.date, 1),
+        fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+      }
     const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
     const next = checkAnnualProgression({ ...advanced, points: recalculated })
 
@@ -2219,6 +2265,25 @@ function SeasonSummaryModal({ stats, onClose }: {
             const totalExpiring = expiring.reduce((s, e) => s + e.points, 0)
             return (
               <div className="bg-zinc-900 border border-orange-800/50 rounded-xl p-4">
+                {career.injury && (
+            <div className="bg-red-900/20 border border-red-800 rounded-xl p-4">
+              <div className="text-xs font-bold text-red-400 mb-1">
+                🤕 {career.injury.label}
+              </div>
+              {career.injury.weeksRemaining > 0 ? (
+                <div className="text-sm text-red-300">
+                  Fuera de competencia — {career.injury.weeksRemaining} semana{career.injury.weeksRemaining > 1 ? "s" : ""} restante{career.injury.weeksRemaining > 1 ? "s" : ""}
+                </div>
+              ) : (
+                <div className="text-sm text-yellow-300">
+                  Volviste a jugar — recuperando nivel ({career.injury.recoveryWeeksRemaining} semana{career.injury.recoveryWeeksRemaining > 1 ? "s" : ""})
+                </div>
+              )}
+              <div className="text-xs text-zinc-500 mt-1">
+                Afecta: {career.injury.affectedAttributes.join(", ")} (-{career.injury.attributePenalty} pts)
+              </div>
+            </div>
+          )}
                 <div className="text-xs font-bold text-orange-400 mb-2">⚠️ PUNTOS QUE VENCEN (próximas 8 semanas)</div>
                 <div className="space-y-1.5">
                   {expiring.map(e => {

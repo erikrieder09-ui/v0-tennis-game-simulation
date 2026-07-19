@@ -39,6 +39,7 @@ export interface PlayerProfile {
   level: number
   energy: number
   attributeCaps: Partial<Record<keyof AttributeSet, number>>
+  injuryProneness: number
 }
  
 export type Surface = "hard" | "clay" | "grass" | "carpet"
