@@ -166,15 +166,6 @@ export interface MatchRecord {
   scoreline: string
   won: boolean
   surface: Surface
-  /** lesión activa, null si está sano */
-  injury: {
-    type: import("./injuries").InjuryType
-    label: string
-    weeksRemaining: number
-    recoveryWeeksRemaining: number
-    affectedAttributes: string[]
-    attributePenalty: number
-  } | null
 }
 
  
@@ -211,6 +202,7 @@ export interface CareerState {
   matchesLost: number
   history: MatchRecord[]
   log: string[]
+  news: import("./news").NewsItem[]
   busyPlayers: string[]
   /** resultado final guardado por torneo, para que no se regenere cada vez que se entra */
   tournamentResults: Record<string, any>
@@ -277,7 +269,6 @@ export function createCareer(player: PlayerProfile): CareerState {
     mentalTrainings: 0,
     fitness: 100,
     injuryWeeksLeft: 0,
-    injuryLabel: null,
     titles: 0,
     matchesWon: 0,
     matchesLost: 0,
@@ -295,7 +286,8 @@ export function createCareer(player: PlayerProfile): CareerState {
     lastProgressionDate: SEASON_START,
     rivalPalmares: {},
     davisCup: null,
-    seasonStats: {
+    news: [],
+    seasonStats: {   
       matchesWon: 0,
       matchesLost: 0,
       bestRank: startRank,

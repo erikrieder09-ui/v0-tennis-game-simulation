@@ -25,6 +25,11 @@ import {
 } from "@/lib/davis-cup"
 import { H2HBadge } from "./h2h-badge"
 import { rollInjury, getInjury, rollWeeksOut } from "@/lib/injuries"
+import {
+  newsTournamentResult, newsUserMilestone, newsInjury, newsRetirement,
+  newsRisingStar, newsRankingMove, checkUserMilestones, newsPreview,
+  type NewsItem, CATEGORY_EMOJI,
+} from "@/lib/news"
 
 
 
@@ -1042,7 +1047,7 @@ interface Props {
   player: PlayerProfile
 }
 
-type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis" | "davis-match"  
+type View = "hub" | "calendar" | "tournament" | "draw" | "match" | "ranking" | "training" | "retire" | "retired" | "davis" | "davis-match" | "news"   
 
 export function CareerHub({ player }: Props) {
   const [career, setCareer] = useState<CareerState>(() => {
@@ -1326,6 +1331,33 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     const { level: newLevel, xp: newXp, levelsGained } = applyXP(career.level, career.xp, xpGained)
     const newFitness = applyEnergy(career.fitness, ENERGY_DELTA.match)
 
+    const playerName = `${career.player.firstName} ${career.player.lastName}`
+    const prevRank = playerRank
+    const newNews: NewsItem[] = []
+
+    // Hito del usuario al ganar
+    if (userWon && selectedT) {
+      const milestoneNews = checkUserMilestones(
+        playerName, playerRank, prevRank + 5,
+        career.matchesWon + 1, career.titles + (userWon && currentRound >= Math.log2(CATEGORY_INFO[selectedT!.category].drawSize) - 1 ? 1 : 0), career.date
+      )
+      newNews.push(...milestoneNews)
+    }
+
+    // Preview si el usuario llega a semis o final
+    if (userWon && selectedT && currentRound >= Math.log2(CATEGORY_INFO[selectedT.category].drawSize) - 2) {
+      const rival = activeMatch?.userIs === 1 ? activeMatch.config.player2 : activeMatch.config.player1
+      if (rival) {
+        newNews.push(newsPreview(
+          playerName,
+          `${rival.firstName} ${rival.lastName}`,
+          selectedT.name,
+          currentRound >= Math.log2(CATEGORY_INFO[selectedT.category].drawSize) - 1 ? "la final" : "semifinales",
+          career.date
+        ))
+      }
+    }
+
     setCareer(prev => ({
       ...prev,
       points: newPoints,
@@ -1366,6 +1398,7 @@ rivalPalmares: bonusUpdate
         scoreline: score,
         won: userWon,
         surface: selectedT.surface,
+        news: [...(prev.news ?? []), ...newNews].slice(-50), // máximo 50 noticias
       }],
     }))
 
@@ -1409,6 +1442,22 @@ rivalPalmares: bonusUpdate
       rivalPalmares: finished ? updateRivalPalmares(current, selectedT.name, prev.rivalPalmares) : prev.rivalPalmares,
     }))
     setDrawMatches([...current])
+    // Noticia del ganador del torneo
+    if (selectedT) {
+      const finalMatch = current.find(m =>
+        m.phase === "final" || m.round === Math.max(...current.map(x => x.round))
+      )
+      if (finalMatch?.winner && !finalMatch.isUser) {
+        const finalist = finalMatch.winner.id === finalMatch.p1?.id ? finalMatch.p2 : finalMatch.p1
+        const news = newsTournamentResult(
+          selectedT.name,
+          `${finalMatch.winner.firstName} ${finalMatch.winner.lastName}`,
+          finalist ? `${finalist.firstName} ${finalist.lastName}` : "su rival",
+          career.date
+        )
+        setCareer(prev => ({ ...prev, news: [...(prev.news ?? []), news].slice(-50) }))
+      }
+    }
     return
   }
 
@@ -1834,6 +1883,9 @@ function SeasonSummaryModal({ stats, onClose }: {
         <Button size="sm" variant={view === "davis" ? "default" : "outline"} onClick={() => setView("davis")}>
   🏆 Copa Davis
 </Button>
+<Button size="sm" variant={view === "news" ? "default" : "outline"} onClick={() => setView("news")}>
+            📰 Noticias
+          </Button>
 </div>
       )}
 
@@ -2222,6 +2274,25 @@ function SeasonSummaryModal({ stats, onClose }: {
         <div className="space-y-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <div className="text-sm font-bold text-zinc-400 mb-3">PRÓXIMOS TORNEOS</div>
+            {career.news && career.news.length > 0 && (() => {
+            const latest = [...career.news].reverse().slice(0, 2)
+            return (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-zinc-400">ÚLTIMAS NOTICIAS</div>
+                  <button className="text-xs text-zinc-500 hover:text-zinc-300" onClick={() => setView("news")}>
+                    Ver todas →
+                  </button>
+                </div>
+                {latest.map(item => (
+                  <div key={item.id} className="flex items-center gap-2 text-xs">
+                    <span>{item.emoji}</span>
+                    <span className="text-zinc-300 truncate">{item.headline}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
             {upcoming.slice(0, 4).map((t, i) => {
               const prev = upcoming[i - 1]
               const showTransition = prev && t.season !== prev.season
@@ -2656,6 +2727,32 @@ function SeasonSummaryModal({ stats, onClose }: {
 )}
         </div>
       )}
+
+{/* NEWS */}
+      {view === "news" && (
+        <div className="space-y-3">
+          <div className="text-sm font-bold text-zinc-400">📰 NOTICIAS</div>
+          {(!career.news || career.news.length === 0) ? (
+            <div className="text-sm text-zinc-500 text-center py-8">
+              No hay noticias todavía. Jugá torneos para que aparezcan.
+            </div>
+          ) : (
+            [...career.news].reverse().map(item => (
+              <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-xl shrink-0">{item.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm">{item.headline}</div>
+                    <div className="text-xs text-zinc-400 mt-0.5">{item.body}</div>
+                    <div className="text-[10px] text-zinc-600 mt-1">{item.date}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
    {/* RETIRE */}
       {view === "retire" && (
         <div className="space-y-4">
