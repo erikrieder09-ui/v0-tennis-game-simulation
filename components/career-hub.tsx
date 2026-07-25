@@ -26,9 +26,8 @@ import {
 import { H2HBadge } from "./h2h-badge"
 import { rollInjury, getInjury, rollWeeksOut } from "@/lib/injuries"
 import {
-  newsTournamentResult, newsUserMilestone, newsInjury, newsRetirement,
-  newsRisingStar, newsRankingMove, checkUserMilestones, newsPreview,
-  type NewsItem, CATEGORY_EMOJI,
+  newsTournamentResult, checkUserMilestones, newsPreview,
+  type NewsItem,
 } from "@/lib/news"
 
 
