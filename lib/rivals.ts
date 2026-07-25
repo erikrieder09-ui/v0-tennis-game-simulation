@@ -8,6 +8,7 @@ import type {
   Surface,
   Tour,
 } from "./types"
+import { computeOverall } from "./attributes"
 
 /* -------------------------------------------------------------------------- */
 /*  Deterministic PRNG (mulberry32) so the field is identical on every load    */
@@ -360,14 +361,11 @@ function getFullRoster(tour: Tour): Rival[] {
 export function evolveRoster(tour: Tour, currentDate: string): void {
   const roster = getFullRoster(tour)
   roster.forEach(r => {
-    if (r.retirementDate && r.retirementDate <= currentDate) return // ya retirado
+    if (r.retirementDate && r.retirementDate <= currentDate) return
     const { attrs } = evolveAttributes(r.age, { ...r.attributes }, r.playStyle)
     r.age += 1
     r.attributes = attrs
-    r.overall = Math.round(
-      Object.values(attrs).filter((v): v is number => typeof v === "number")
-        .reduce((a, b) => a + b, 0) / 10
-    )
+    r.overall = computeOverall(attrs, r.playStyle)
     r.currentAbility = r.overall
   })
 }
