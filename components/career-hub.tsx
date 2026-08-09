@@ -1589,6 +1589,14 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     let rivalBonusHistory = prev.rivalBonusHistory
     let rivalPalmares = prev.rivalPalmares
 
+    // Foto del ranking ANTES de aplicar los resultados de la semana (para detectar movimientos de rivales)
+    const rankingBefore = buildLiveRanking(prev.player.tour, prev.points, prev.player, rivalBonusHistory, weekEnding)
+      .map(r => ({ id: r.id, name: `${r.firstName} ${r.lastName}`, rank: r.rank }))
+
+    const weekNews: NewsItem[] = []
+    // Categorías cuyos campeones ameritan una noticia (evita saturar con challengers/futures)
+    const NEWSWORTHY = new Set<Category>(["grand-slam", "masters-1000", "atp-finals", "atp-500", "atp-250"])
+
     const weekTournaments = getTournamentsOnDate(weekEnding)
     if (weekTournaments.length > 0) {
       const userRivalForSim = buildUserRival(prev)
@@ -1615,6 +1623,25 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       }
     }
 
+    // Noticias de campeones de TODOS los torneos de la semana (jugados, espectados o simulados).
+    // Se omite al campeón USER, cuya noticia de título ya se genera al terminar el partido.
+    for (const t of weekTournaments) {
+      if (!NEWSWORTHY.has(t.category)) continue
+      const matches: DrawMatch[] = tournamentResults[t.id]
+      if (!matches) continue
+      const wn = tournamentWinnerNews(t, matches, weekEnding)
+      if (!wn) continue
+      const finished = matches.find((m: DrawMatch) => m.phase === "final") ??
+        matches.find((m: DrawMatch) => m.round === Math.max(...matches.map((x: DrawMatch) => x.round)))
+      if (finished?.winner?.id === "USER") continue // ya la generó handleMatchEnd
+      weekNews.push(wn)
+    }
+
+    // Movimientos destacados en el ranking de rivales (nuevo nº1, nuevos ingresos al top 5)
+    const rankingAfter = buildLiveRanking(prev.player.tour, prev.points, prev.player, rivalBonusHistory, weekEnding)
+      .map(r => ({ id: r.id, name: `${r.firstName} ${r.lastName}`, rank: r.rank }))
+    weekNews.push(...computeRivalRankingNews(rankingBefore, rankingAfter, weekEnding))
+
     const withBackgroundSims: CareerState = {
       ...prev,
       tournamentResults,
@@ -1622,52 +1649,55 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       rivalPalmares,
     }
 
+    // Adjunta las noticias de la semana a cualquier estado final
+    const attach = (s: CareerState): CareerState =>
+      weekNews.length > 0
+        ? { ...s, news: [...(s.news ?? []), ...weekNews].slice(-80) }
+        : s
+
     // --- Lógica original de avance de semana, ahora sobre withBackgroundSims ---
     // Chequear si ya está lesionado — reducir semanas
-      if (prev.injury) {
-        const updatedInjury = prev.injury.weeksRemaining > 1
-          ? { ...prev.injury, weeksRemaining: prev.injury.weeksRemaining - 1 }
-          : prev.injury.recoveryWeeksRemaining > 0
-            ? { ...prev.injury, weeksRemaining: 0, recoveryWeeksRemaining: prev.injury.recoveryWeeksRemaining - 1 }
+      if (withBackgroundSims.injury) {
+        const updatedInjury = withBackgroundSims.injury.weeksRemaining > 1
+          ? { ...withBackgroundSims.injury, weeksRemaining: withBackgroundSims.injury.weeksRemaining - 1 }
+          : withBackgroundSims.injury.recoveryWeeksRemaining > 0
+            ? { ...withBackgroundSims.injury, weeksRemaining: 0, recoveryWeeksRemaining: withBackgroundSims.injury.recoveryWeeksRemaining - 1 }
             : null
 
-        const recoveredMsg = !updatedInjury && prev.injury
-          ? [`✅ Te recuperaste de la ${prev.injury.label}`]
+        const recoveredMsg = !updatedInjury && withBackgroundSims.injury
+          ? [`✅ Te recuperaste de la ${withBackgroundSims.injury.label}`]
           : []
 
         const advanced: CareerState = {
-          ...prev,
-          date: addWeeks(prev.date, 1),
-          fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+          ...withBackgroundSims,
+          date: addWeeks(withBackgroundSims.date, 1),
+          fitness: applyEnergy(withBackgroundSims.fitness, ENERGY_DELTA.rest),
           injury: updatedInjury,
-          log: [...prev.log, ...recoveredMsg],
+          log: [...withBackgroundSims.log, ...recoveredMsg],
         }
         const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
         const next = checkAnnualProgression({ ...advanced, points: recalculated })
-        if (next.lastProgressionDate !== prev.lastProgressionDate) {
-          const completedYear = new Date(prev.lastProgressionDate ?? prev.date).getFullYear()
-          setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
-          return {
+        if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
+          const completedYear = new Date(withBackgroundSims.lastProgressionDate ?? withBackgroundSims.date).getFullYear()
+          evolveRoster(withBackgroundSims.player.tour, next.date)
+          setTimeout(() => setSeasonSummary({ ...withBackgroundSims.seasonStats, year: completedYear }), 100)
+          return attach({
             ...next,
             davisCup: null,
             seasonStats: { matchesWon: 0, matchesLost: 0, bestRank: getPlayerRank(next), pointsEarned: 0, year: completedYear + 1 },
-            log: [...next.log, `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`],
-          }
+            log: [...next.log, `📊 Temporada ${completedYear}: ${withBackgroundSims.seasonStats.matchesWon}W/${withBackgroundSims.seasonStats.matchesLost}L · Mejor ranking: #${withBackgroundSims.seasonStats.bestRank} · ${withBackgroundSims.seasonStats.pointsEarned} puntos ganados`],
+          })
         }
-        const prevYear = new Date(prev.date).getFullYear()
+        const prevYear = new Date(withBackgroundSims.date).getFullYear()
         const nextYear = new Date(next.date).getFullYear()
-        if (nextYear > prevYear && next.davisCup?.year !== nextYear) return { ...next, davisCup: null }
-        return next
+        if (nextYear > prevYear && next.davisCup?.year !== nextYear) return attach({ ...next, davisCup: null })
+        return attach(next)
       }
 
-      // No está lesionado — chequear si se lesiona esta semana
-      const playedThisWeek = !!career.activeTournamentByWeek?.[prev.date]
-      const injuryType = rollInjury(prev.player.injuryProneness ?? 30, prev.fitness, playedThisWeek)
-
       const advanced: CareerState = {
-        ...prev,
-        date: addWeeks(prev.date, 1),
-        fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+        ...withBackgroundSims,
+        date: addWeeks(withBackgroundSims.date, 1),
+        fitness: applyEnergy(withBackgroundSims.fitness, ENERGY_DELTA.rest),
       }
     const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
     const next = checkAnnualProgression({ ...advanced, points: recalculated })
@@ -1680,7 +1710,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       evolveRoster(withBackgroundSims.player.tour, next.date)
 
       setTimeout(() => setSeasonSummary({ ...withBackgroundSims.seasonStats, year: completedYear }), 100)
-      return {
+      return attach({
         ...next,
         davisCup: null,
         seasonStats: {
@@ -1694,17 +1724,17 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           ...next.log,
           `📊 Temporada ${completedYear}: ${withBackgroundSims.seasonStats.matchesWon}W/${withBackgroundSims.seasonStats.matchesLost}L · Mejor ranking: #${withBackgroundSims.seasonStats.bestRank} · ${withBackgroundSims.seasonStats.pointsEarned} puntos ganados`,
         ],
-      }
+      })
     }
 
     // Resetear Copa Davis al inicio de cada año nuevo (sin progresión)
     const prevYear = new Date(withBackgroundSims.date).getFullYear()
     const nextYear = new Date(next.date).getFullYear()
     if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
-      return { ...next, davisCup: null }
+      return attach({ ...next, davisCup: null })
     }
 
-    return next
+    return attach(next)
   })
 }
 
