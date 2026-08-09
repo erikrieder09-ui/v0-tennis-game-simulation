@@ -26,7 +26,8 @@ import {
 import { H2HBadge } from "./h2h-badge"
 import { rollInjury, getInjury, rollWeeksOut } from "@/lib/injuries"
 import {
-  newsTournamentResult, checkUserMilestones, newsPreview,
+  newsTournamentResult, newsPreview,
+  checkRankMilestones, checkMatchMilestones, checkTitleMilestones, computeRivalRankingNews,
   type NewsItem,
 } from "@/lib/news"
 
@@ -305,6 +306,37 @@ function buildUserRival(c: CareerState): Rival {
   }
 }
 
+/**
+ * Orden de siembra estándar de un cuadro de eliminación directa de tamaño `size`
+ * (potencia de 2). Devuelve un array donde el índice = posición del slot y el valor
+ * = número de cabeza de serie (1-based) que va en ese slot. Garantiza que las cabezas
+ * de serie más altas queden lo más separadas posible (la 1 y la 2 en mitades opuestas,
+ * la 3 y la 4 en cuartos opuestos, etc.) y que dos sembrados nunca se crucen en 1ª ronda.
+ */
+function standardSeedOrder(size: number): number[] {
+  let order = [1, 2]
+  while (order.length < size) {
+    const n = order.length * 2
+    const next: number[] = []
+    for (const s of order) {
+      next.push(s)
+      next.push(n + 1 - s)
+    }
+    order = next
+  }
+  return order
+}
+
+/** Cantidad de cabezas de serie según el tamaño del cuadro (regla ATP: ~1/4 del cuadro). */
+function seedCountForSize(size: number): number {
+  if (size >= 128) return 32
+  if (size >= 64) return 16
+  if (size >= 32) return 8
+  if (size >= 16) return 4
+  if (size >= 8) return 2
+  return 0
+}
+
 function buildDraw(
   t: Tournament,
   rivals: Rival[],
@@ -315,40 +347,48 @@ function buildDraw(
   const info = CATEGORY_INFO[t.category]
   const size = overrideDrawSize ?? info.drawSize
 
-  const pool = rivals
+  const rivalPool = rivals
     .filter(r => r.id !== "USER")
     .sort((a, b) => a.rank - b.rank)
 
-  const slotsForRivals = size - (isDirect ? 1 : 0)
-  const field = pool.slice(0, slotsForRivals)
+  // Armar el cuadro completo (incluyendo al usuario cuando entra directo), ordenado por
+  // ranking real. Así el usuario ES considerado según su ranking: si es top, va sembrado.
+  let field: Rival[]
+  if (isDirect) {
+    field = [...rivalPool, userRival].sort((a, b) => a.rank - b.rank).slice(0, size)
+    if (!field.some(r => r.id === "USER")) {
+      field[field.length - 1] = userRival
+      field.sort((a, b) => a.rank - b.rank)
+    }
+  } else {
+    field = rivalPool.slice(0, size)
+  }
 
-  const seeded = field.slice(0, 8)
-  const unseeded = field.slice(8)
+  // Cabezas de serie = los mejores por ranking dentro del cuadro (el usuario incluido).
+  const seedCount = Math.min(seedCountForSize(size), field.length)
+  const seeds = field.slice(0, seedCount)
+  const unseeded = field.slice(seedCount)
 
+  // Barajar solo los no-sembrados
   for (let i = unseeded.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[unseeded[i], unseeded[j]] = [unseeded[j], unseeded[i]]
   }
 
+  const order = standardSeedOrder(size) // slot -> nº de cabeza de serie (1-based)
   const slots: (Rival | null)[] = new Array(size).fill(null)
-  const seedPos = [
-    0, size - 1,
-    Math.floor(size / 2) - 1, Math.floor(size / 2),
-    Math.floor(size / 4) - 1, Math.floor(size * 3 / 4),
-    Math.floor(size / 4), Math.floor(size * 3 / 4) - 1,
-  ]
-  seeded.forEach((s, i) => { if (seedPos[i] !== undefined) slots[seedPos[i]] = s })
 
-  const toPlace = isDirect ? [...unseeded, userRival] : unseeded
+  // Ubicar cada cabeza de serie en su slot canónico (máxima separación)
+  order.forEach((seedNum, slot) => {
+    if (seedNum <= seedCount && seeds[seedNum - 1]) {
+      slots[slot] = seeds[seedNum - 1]
+    }
+  })
 
-  for (let i = toPlace.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[toPlace[i], toPlace[j]] = [toPlace[j], toPlace[i]]
-  }
-
+  // Rellenar los slots restantes con los no-sembrados barajados
   let pi = 0
   for (let i = 0; i < slots.length; i++) {
-    if (!slots[i]) slots[i] = toPlace[pi++] ?? null
+    if (!slots[i]) slots[i] = unseeded[pi++] ?? null
   }
 
   const matches: DrawMatch[] = []
@@ -370,6 +410,39 @@ function buildDraw(
 
 function finalSetTiebreakAtFor(category: Category): number {
   return category === "grand-slam" ? 7 : 10
+}
+
+/** ¿El torneo llegó a coronar campeón? */
+function isDrawFinished(matches: DrawMatch[], category: Category): boolean {
+  if (matches.length === 0) return false
+  if (category === "atp-finals") {
+    const f = matches.find(m => m.phase === "final")
+    return !!f?.winner
+  }
+  const maxR = Math.max(...matches.map(m => m.round))
+  const last = matches.filter(m => m.round === maxR)
+  return last.length === 1 && !!last[0].winner
+}
+
+/** Genera la noticia del ganador de un torneo terminado (con finalista y resultado). */
+function tournamentWinnerNews(
+  t: Tournament,
+  matches: DrawMatch[],
+  date: string
+): NewsItem | null {
+  if (!isDrawFinished(matches, t.category)) return null
+  const maxR = Math.max(...matches.map(m => m.round))
+  const finalMatch = matches.find(m => m.phase === "final") ?? matches.find(m => m.round === maxR)
+  if (!finalMatch?.winner) return null
+  const winner = finalMatch.winner
+  const finalist = winner.id === finalMatch.p1?.id ? finalMatch.p2 : finalMatch.p1
+  return newsTournamentResult(
+    t.name,
+    `${winner.firstName} ${winner.lastName}`,
+    finalist ? `${finalist.firstName} ${finalist.lastName}` : "su rival",
+    date,
+    finalMatch.score,
+  )
 }
 
 function simNonUserMatches(
@@ -1331,20 +1404,36 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
     const newFitness = applyEnergy(career.fitness, ENERGY_DELTA.match)
 
     const playerName = `${career.player.firstName} ${career.player.lastName}`
-    const prevRank = playerRank
     const newNews: NewsItem[] = []
 
-    // Hito del usuario al ganar
-    if (userWon && selectedT) {
-      const milestoneNews = checkUserMilestones(
-        playerName, playerRank, prevRank + 5,
-        career.matchesWon + 1, career.titles + (userWon && currentRound >= Math.log2(CATEGORY_INFO[selectedT!.category].drawSize) - 1 ? 1 : 0), career.date
-      )
-      newNews.push(...milestoneNews)
+    // ¿Este resultado corona al usuario como campeón del torneo?
+    const champion = tournamentFinished ? lastRoundMatches[0].winner : null
+    const wonTitle = tournamentFinished && champion?.id === "USER"
+
+    // Ranking del usuario DESPUÉS de sumar los puntos de este resultado
+    const newRankVal =
+      buildLiveRanking(career.player.tour, newPoints, career.player, bonusUpdate ?? career.rivalBonusHistory, career.date)
+        .find(r => r.isUser)?.rank ?? playerRank
+    const newBestRank = Math.min(career.bestRank, newRankVal)
+
+    // Hitos de ranking (top 50, top 10, nº1, ...) — solo la primera vez que se alcanzan
+    newNews.push(...checkRankMilestones(playerName, newRankVal, career.bestRank, career.date))
+
+    // Hito por victorias acumuladas
+    if (userWon) {
+      newNews.push(...checkMatchMilestones(playerName, career.matchesWon + 1, career.date))
+    }
+
+    // Hitos de títulos (primer título, primer M1000, primer Grand Slam, ...)
+    if (wonTitle && selectedT) {
+      const priorTitlesList = career.userTitles ?? []
+      const priorTotal = priorTitlesList.length
+      const priorSameCat = priorTitlesList.filter(x => x.category === selectedT.category).length
+      newNews.push(...checkTitleMilestones(playerName, selectedT.name, selectedT.category, priorTotal, priorSameCat, career.date))
     }
 
     // Preview si el usuario llega a semis o final
-    if (userWon && selectedT && currentRound >= Math.log2(CATEGORY_INFO[selectedT.category].drawSize) - 2) {
+    if (userWon && !wonTitle && selectedT && currentRound >= Math.log2(CATEGORY_INFO[selectedT.category].drawSize) - 2) {
       const rival = activeMatch?.userIs === 1 ? activeMatch.config.player2 : activeMatch.config.player1
       if (rival) {
         newNews.push(newsPreview(
@@ -1357,6 +1446,12 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       }
     }
 
+    // Si el usuario ganó el título, noticia de campeón
+    if (wonTitle && selectedT) {
+      const wn = tournamentWinnerNews(selectedT, finalMatches, career.date)
+      if (wn) newNews.push(wn)
+    }
+
     setCareer(prev => ({
       ...prev,
       points: newPoints,
@@ -1365,6 +1460,11 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
       level: newLevel,
       xp: newXp,
       fitness: newFitness,
+      bestRank: newBestRank,
+      titles: prev.titles + (wonTitle ? 1 : 0),
+      userTitles: wonTitle && selectedT
+        ? [...(prev.userTitles ?? []), { name: selectedT.name, category: selectedT.category, date: career.date }]
+        : (prev.userTitles ?? []),
       matchesWon: prev.matchesWon + (userWon ? 1 : 0),
       matchesLost: prev.matchesLost + (userWon ? 0 : 1),
       seasonStats: {
@@ -1372,16 +1472,17 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
         matchesWon: prev.seasonStats.matchesWon + (userWon ? 1 : 0),
         matchesLost: prev.seasonStats.matchesLost + (userWon ? 0 : 1),
         pointsEarned: prev.seasonStats.pointsEarned + ptsEarned,
-        bestRank: Math.min(prev.seasonStats.bestRank, playerRank),
+        bestRank: Math.min(prev.seasonStats.bestRank, newRankVal),
       },
       log: levelsGained > 0
         ? [...prev.log, resultMsg, `🎉 ¡Subiste a nivel ${newLevel}!`]
         : [...prev.log, resultMsg],
       tournamentResults: { ...prev.tournamentResults, [selectedT.id]: finalMatches },
       rivalBonusHistory: bonusUpdate ?? prev.rivalBonusHistory,
-rivalPalmares: bonusUpdate
-  ? updateRivalPalmares(finalMatches, selectedT.name, prev.rivalPalmares)
-  : prev.rivalPalmares,
+      rivalPalmares: bonusUpdate
+        ? updateRivalPalmares(finalMatches, selectedT.name, prev.rivalPalmares)
+        : prev.rivalPalmares,
+      news: [...(prev.news ?? []), ...newNews].slice(-80),
       history: [...prev.history, {
         id: `${selectedT.id}-${Date.now()}`,
         date: career.date,
@@ -1397,7 +1498,6 @@ rivalPalmares: bonusUpdate
         scoreline: score,
         won: userWon,
         surface: selectedT.surface,
-        news: [...(prev.news ?? []), ...newNews].slice(-50), // máximo 50 noticias
       }],
     }))
 
@@ -1441,22 +1541,7 @@ rivalPalmares: bonusUpdate
       rivalPalmares: finished ? updateRivalPalmares(current, selectedT.name, prev.rivalPalmares) : prev.rivalPalmares,
     }))
     setDrawMatches([...current])
-    // Noticia del ganador del torneo
-    if (selectedT) {
-      const finalMatch = current.find(m =>
-        m.phase === "final" || m.round === Math.max(...current.map(x => x.round))
-      )
-      if (finalMatch?.winner && !finalMatch.isUser) {
-        const finalist = finalMatch.winner.id === finalMatch.p1?.id ? finalMatch.p2 : finalMatch.p1
-        const news = newsTournamentResult(
-          selectedT.name,
-          `${finalMatch.winner.firstName} ${finalMatch.winner.lastName}`,
-          finalist ? `${finalist.firstName} ${finalist.lastName}` : "su rival",
-          career.date
-        )
-        setCareer(prev => ({ ...prev, news: [...(prev.news ?? []), news].slice(-50) }))
-      }
-    }
+    // La noticia del campeón se genera al pasar la semana (centralizado en advanceWeek)
     return
   }
 

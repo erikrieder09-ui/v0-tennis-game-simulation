@@ -198,6 +198,8 @@ export interface CareerState {
     attributePenalty: number
   } | null
   titles: number
+  /** títulos del usuario con su categoría, para hitos "primer M1000 / primer Grand Slam", etc. */
+  userTitles?: { name: string; category: string; date: string }[]
   matchesWon: number
   matchesLost: number
   history: MatchRecord[]
@@ -270,6 +272,7 @@ export function createCareer(player: PlayerProfile): CareerState {
     fitness: 100,
     injuryWeeksLeft: 0,
     titles: 0,
+    userTitles: [],
     matchesWon: 0,
     matchesLost: 0,
     history: [],
