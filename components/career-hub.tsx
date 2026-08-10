@@ -1496,130 +1496,145 @@ rivalPalmares: bonusUpdate
   
 
  function advanceWeek() {
-  const weekEnding = career.date // semana que se está cerrando
-
   setCareer(prev => {
-    // --- Simular en segundo plano los torneos de la semana que termina y que nunca se tocaron ---
-    let tournamentResults = { ...prev.tournamentResults }
-    let rivalBonusHistory = prev.rivalBonusHistory
-    let rivalPalmares = prev.rivalPalmares
+    // 1. Simular torneos de fondo (todos los de esa semana que el usuario no juega)
+    const weekTournaments = getTournamentsOnDate(prev.date)
+    const weekNews: NewsItem[] = []
 
-    const weekTournaments = getTournamentsOnDate(weekEnding)
-    if (weekTournaments.length > 0) {
-      const userRivalForSim = buildUserRival(prev)
-      for (const t of weekTournaments) {
-        if (tournamentResults[t.id]) continue // ya jugado o espectado, no lo tocamos
+    let withBackgroundSims = { ...prev }
+    weekTournaments.forEach(t => {
+      if (prev.activeTournamentByWeek?.[t.date] === t.id) return
+      if (prev.tournamentResults?.[t.id]) return
+      const allRivals = buildLiveRanking(prev.player.tour, prev.points, prev.player, prev.rivalBonusHistory, prev.date)
+      const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
+      const rivsForDraw = t.category === "atp-finals"
+        ? allNonUserRivals.sort((a, b) => a.rank - b.rank).slice(0, 8)
+        : getEligibleRivalsForTournament(t, allNonUserRivals, weekTournaments)
+      const userRival = buildUserRival(prev)
+      let matches = t.category === "atp-finals"
+        ? buildRoundRobinDraw(rivsForDraw, userRival, false)
+        : buildDraw(t, rivsForDraw, userRival, false)
+      matches = t.category === "atp-finals"
+        ? simulateRoundRobinToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+        : simulateToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+        
+      const maxR = Math.max(...matches.map(m => m.round))
+      const finalMatch = matches.find(m => m.round === maxR && m.phase !== "group" && m.phase !== "semifinal")
+        ?? matches.find(m => m.phase === "final")
+      if (finalMatch?.winner && finalMatch.winner.id !== "USER") {
+        const finalist = finalMatch.winner.id === finalMatch.p1?.id ? finalMatch.p2 : finalMatch.p1
+        weekNews.push(newsTournamentResult(
+          t.name,
+          `${finalMatch.winner.firstName} ${finalMatch.winner.lastName}`,
+          finalist ? `${finalist.firstName} ${finalist.lastName}` : "su rival",
+          prev.date
+        ))
+      }
 
-        const allRivals = buildLiveRanking(prev.player.tour, prev.points, prev.player, rivalBonusHistory, weekEnding)
-        const allNonUserRivals = allRivals.filter(r => !r.isUser) as Rival[]
-        const rivsForDraw = t.category === "atp-finals"
-          ? allNonUserRivals.sort((a, b) => a.rank - b.rank).slice(0, 8)
-          : getEligibleRivalsForTournament(t, allNonUserRivals, weekTournaments)
+      const bonusMap = computeTournamentPointsBonus(matches, t.category, withBackgroundSims.rivalBonusHistory, prev.date)
+      withBackgroundSims = {
+        ...withBackgroundSims,
+        tournamentResults: { ...withBackgroundSims.tournamentResults, [t.id]: matches },
+        rivalBonusHistory: bonusMap,
+        rivalPalmares: updateRivalPalmares(matches, t.name, withBackgroundSims.rivalPalmares),
+      }
+    })
 
-        let matches = t.category === "atp-finals"
-          ? buildRoundRobinDraw(rivsForDraw, userRivalForSim, false)
-          : buildDraw(t, rivsForDraw, userRivalForSim, false)
+    // 2. Avanzar fecha y energía
+    const advanced: CareerState = {
+      ...withBackgroundSims,
+      date: addWeeks(prev.date, 1),
+      fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
+    }
 
-        matches = t.category === "atp-finals"
-          ? simulateRoundRobinToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
-          : simulateToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+    // 3. Si está lesionado — reducir semanas
+    if (prev.injury) {
+      const updatedInjury = prev.injury.weeksRemaining > 1
+        ? { ...prev.injury, weeksRemaining: prev.injury.weeksRemaining - 1 }
+        : prev.injury.recoveryWeeksRemaining > 0
+          ? { ...prev.injury, weeksRemaining: 0, recoveryWeeksRemaining: prev.injury.recoveryWeeksRemaining - 1 }
+          : null
 
-        tournamentResults[t.id] = matches
-        rivalBonusHistory = computeTournamentPointsBonus(matches, t.category, rivalBonusHistory, weekEnding)
-        rivalPalmares = updateRivalPalmares(matches, t.name, rivalPalmares)
+      const recoveredMsg = !updatedInjury && prev.injury
+        ? [`✅ Te recuperaste de la ${prev.injury.label}`]
+        : []
+
+      return {
+        ...advanced,
+        injury: updatedInjury,
+        news: [...(prev.news ?? []), ...weekNews].slice(-100),
+        log: [...advanced.log, ...recoveredMsg],
       }
     }
 
-    const withBackgroundSims: CareerState = {
-      ...prev,
-      tournamentResults,
-      rivalBonusHistory,
-      rivalPalmares,
+    // 4. No lesionado — chequear nueva lesión
+    const playedThisWeek = !!prev.activeTournamentByWeek?.[prev.date]
+    const injuryType = rollInjury(prev.player.injuryProneness ?? 30, prev.fitness, playedThisWeek)
+
+    if (injuryType) {
+      const injury = getInjury(injuryType)
+      const weeksOut = rollWeeksOut(injuryType)
+      return {
+        ...advanced,
+        injury: {
+          type: injuryType,
+          label: injury.label,
+          weeksRemaining: weeksOut,
+          recoveryWeeksRemaining: injury.recoveryWeeks,
+          affectedAttributes: injury.affectedAttributes,
+          attributePenalty: injury.attributePenalty,
+        },
+        news: [...(prev.news ?? []), ...weekNews].slice(-100),
+        log: [...advanced.log, `🤕 Te lesionaste: ${injury.label}. Estarás ${weeksOut} semana${weeksOut > 1 ? "s" : ""} fuera.`],
+      }
     }
 
-    // --- Lógica original de avance de semana, ahora sobre withBackgroundSims ---
-    // Chequear si ya está lesionado — reducir semanas
-      if (prev.injury) {
-        const updatedInjury = prev.injury.weeksRemaining > 1
-          ? { ...prev.injury, weeksRemaining: prev.injury.weeksRemaining - 1 }
-          : prev.injury.recoveryWeeksRemaining > 0
-            ? { ...prev.injury, weeksRemaining: 0, recoveryWeeksRemaining: prev.injury.recoveryWeeksRemaining - 1 }
-            : null
-
-        const recoveredMsg = !updatedInjury && prev.injury
-          ? [`✅ Te recuperaste de la ${prev.injury.label}`]
-          : []
-
-        const advanced: CareerState = {
-          ...prev,
-          date: addWeeks(prev.date, 1),
-          fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
-          injury: updatedInjury,
-          log: [...prev.log, ...recoveredMsg],
-        }
-        const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
-        const next = checkAnnualProgression({ ...advanced, points: recalculated })
-        if (next.lastProgressionDate !== prev.lastProgressionDate) {
-          const completedYear = new Date(prev.lastProgressionDate ?? prev.date).getFullYear()
-          setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
-          return {
-            ...next,
-            davisCup: null,
-            seasonStats: { matchesWon: 0, matchesLost: 0, bestRank: getPlayerRank(next), pointsEarned: 0, year: completedYear + 1 },
-            log: [...next.log, `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`],
-          }
-        }
-        const prevYear = new Date(prev.date).getFullYear()
-        const nextYear = new Date(next.date).getFullYear()
-        if (nextYear > prevYear && next.davisCup?.year !== nextYear) return { ...next, davisCup: null }
-        return next
-      }
-
-      // No está lesionado — chequear si se lesiona esta semana
-      const playedThisWeek = !!career.activeTournamentByWeek?.[prev.date]
-      const injuryType = rollInjury(prev.player.injuryProneness ?? 30, prev.fitness, playedThisWeek)
-
-      const advanced: CareerState = {
-        ...prev,
-        date: addWeeks(prev.date, 1),
-        fitness: applyEnergy(prev.fitness, ENERGY_DELTA.rest),
-      }
+    // 5. Recalcular puntos y progresión anual
     const recalculated = recomputePoints(advanced.pointsHistory, advanced.date)
     const next = checkAnnualProgression({ ...advanced, points: recalculated })
 
-    // Detectar cambio de temporada
-    if (next.lastProgressionDate !== withBackgroundSims.lastProgressionDate) {
-      const completedYear = new Date(withBackgroundSims.lastProgressionDate).getFullYear()
+    // 6. Hitos del usuario
+    const playerName = `${prev.player.firstName} ${prev.player.lastName}`
+    const currentRank = getPlayerRank({ ...next, points: recalculated })
+    const prevRank = getPlayerRank(prev)
+    const milestoneNews = checkUserMilestones(playerName, currentRank, prevRank, next.matchesWon, next.titles, next.date)
+    weekNews.push(...milestoneNews)
 
-      // Evolucionar el roster ANTES de cortar con el return — antes esto quedaba inalcanzable
-      evolveRoster(withBackgroundSims.player.tour, next.date)
-
-      setTimeout(() => setSeasonSummary({ ...withBackgroundSims.seasonStats, year: completedYear }), 100)
+    // 7. Cambio de temporada
+    if (next.lastProgressionDate !== prev.lastProgressionDate) {
+      const completedYear = new Date(prev.lastProgressionDate ?? prev.date).getFullYear()
+      setTimeout(() => setSeasonSummary({ ...prev.seasonStats, year: completedYear }), 100)
+      const prevYear2 = new Date(prev.date).getFullYear()
       return {
         ...next,
-        davisCup: null,
+        davisCup: next.davisCup?.year !== (prevYear2 + 1) ? null : next.davisCup,
+        news: [...(prev.news ?? []), ...weekNews].slice(-100),
         seasonStats: {
           matchesWon: 0,
           matchesLost: 0,
-          bestRank: getPlayerRank(next),
+          bestRank: currentRank,
           pointsEarned: 0,
           year: completedYear + 1,
         },
-        log: [
-          ...next.log,
-          `📊 Temporada ${completedYear}: ${withBackgroundSims.seasonStats.matchesWon}W/${withBackgroundSims.seasonStats.matchesLost}L · Mejor ranking: #${withBackgroundSims.seasonStats.bestRank} · ${withBackgroundSims.seasonStats.pointsEarned} puntos ganados`,
-        ],
+        log: [...next.log, `📊 Temporada ${completedYear}: ${prev.seasonStats.matchesWon}W/${prev.seasonStats.matchesLost}L · Mejor ranking: #${prev.seasonStats.bestRank} · ${prev.seasonStats.pointsEarned} puntos ganados`],
       }
     }
 
-    // Resetear Copa Davis al inicio de cada año nuevo (sin progresión)
-    const prevYear = new Date(withBackgroundSims.date).getFullYear()
+    // 8. Reset Copa Davis si cambió el año sin progresión anual
+    const prevYear = new Date(prev.date).getFullYear()
     const nextYear = new Date(next.date).getFullYear()
     if (nextYear > prevYear && next.davisCup?.year !== nextYear) {
-      return { ...next, davisCup: null }
+      return {
+        ...next,
+        davisCup: null,
+        news: [...(prev.news ?? []), ...weekNews].slice(-100),
+      }
     }
 
-    return next
+    return {
+      ...next,
+      news: [...(prev.news ?? []), ...weekNews].slice(-100),
+    }
   })
 }
 
