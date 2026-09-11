@@ -358,15 +358,39 @@ function getFullRoster(tour: Tour): Rival[] {
  * los jóvenes mejoran, los veteranos declinan.
  * Llamar una vez por temporada (cuando checkAnnualProgression se dispara).
  */
+function progressionSeed(id: string, year: number): () => number {
+  let seed = 2166136261
+  for (const char of `${id}:${year}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619)
+  return mulberry32(seed >>> 0)
+}
+
 export function evolveRoster(tour: Tour, currentDate: string): void {
   const roster = getFullRoster(tour)
+  const seasonYear = new Date(currentDate).getFullYear()
+
   roster.forEach(r => {
     if (r.retirementDate && r.retirementDate <= currentDate) return
-    const { attrs } = evolveAttributes(r.age, { ...r.attributes }, r.playStyle)
-    r.age += 1
+    const rand = progressionSeed(r.id, seasonYear)
+    const oldAge = r.age
+    const { attrs } = evolveAttributes(
+      oldAge,
+      { ...r.attributes },
+      r.playStyle,
+      r.potentialAbility,
+      r.attributes.professionalism ?? 60,
+    )
+    r.age = oldAge + 1
     r.attributes = attrs
     r.overall = computeOverall(attrs, r.playStyle)
-    r.currentAbility = r.overall
+    r.currentAbility = Math.min(r.potentialAbility, r.overall)
+    r.overall = r.currentAbility
+
+    // Small deterministic variance prevents a whole generation from moving identically,
+    // while keeping high-potential youngsters able to reach their ceiling.
+    if (oldAge <= 26 && r.currentAbility < r.potentialAbility && rand() > 0.45) {
+      r.currentAbility = Math.min(r.potentialAbility, r.currentAbility + 1)
+      r.overall = r.currentAbility
+    }
   })
 }
 

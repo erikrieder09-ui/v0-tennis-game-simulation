@@ -441,18 +441,21 @@ const TECHNICAL_ATTRS: (keyof AttributeSet)[] = ["serve", "drive", "backhand", "
 export function evolveAttributes(
   age: number,
   attrs: AttributeSet,
-  playStyle: import("./types").PlayStyle
+  playStyle: import("./types").PlayStyle,
+  potentialAbility?: number,
+  professionalism = attrs.professionalism ?? 60,
 ): { attrs: AttributeSet; changes: Partial<Record<keyof AttributeSet, number>> } {
   const result = { ...attrs }
   const changes: Partial<Record<keyof AttributeSet, number>> = {}
   const rate = progressionRate(age)
   const currentOverall = computeOverall(result, playStyle)
-  const estimatedPA = age <= 20 ? 97 : age <= 23 ? 93 : age <= 26 ? 88 : age <= 29 ? 80 : 70
+  const estimatedPA = potentialAbility ?? (attrs.potential ? Math.max(currentOverall, attrs.potential) : age <= 20 ? 97 : age <= 23 ? 93 : age <= 26 ? 88 : age <= 29 ? 80 : 70)
   const roomToGrow = Math.max(0, estimatedPA - currentOverall)
- 
+  const developmentFactor = Math.max(0.65, Math.min(1.45, professionalism / 60))
+
   if (age <= 30) {
     for (const key of TECHNICAL_ATTRS) {
-      const gain = Math.round((rate * (roomToGrow / 20)) * (0.8 + Math.random() * 0.4))
+      const gain = Math.round((rate * (roomToGrow / 12) * developmentFactor) * (0.9 + Math.random() * 0.2))
       if (gain !== 0) {
         result[key] = Math.min(99, Math.max(30, (result[key] ?? 0) + gain))
         changes[key] = gain
