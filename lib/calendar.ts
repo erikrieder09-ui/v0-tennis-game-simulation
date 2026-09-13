@@ -14,7 +14,7 @@ export interface CategoryInfo {
   winnerPrize: number
   /** draw size (main draw) */
   drawSize: number
-  /** number of best-of sets — GS men are best-of-5 */
+  /** number of sets needed to win the match */
   bestOf: 3 | 5
   /** does this event have a qualifying draw the user (if low-ranked) must play? */
   hasQualy: boolean
@@ -25,7 +25,7 @@ export interface CategoryInfo {
 }
 
 export const CATEGORY_INFO: Record<Category, CategoryInfo> = {
-  "grand-slam": { label: "Grand Slam", winnerPoints: 2000, winnerPrize: 2800000, drawSize: 128, bestOf: 5, hasQualy: true, directEntryRank: 104, qualyEntryRank: 250 },
+  "grand-slam": { label: "Grand Slam", winnerPoints: 2000, winnerPrize: 2800000, drawSize: 128, bestOf: 3, hasQualy: true, directEntryRank: 104, qualyEntryRank: 250 },
   "masters-1000": { label: "Masters 1000", winnerPoints: 1000, winnerPrize: 1100000, drawSize: 64, bestOf: 3, hasQualy: true, directEntryRank: 60, qualyEntryRank: 250 },
   "atp-500": { label: "ATP/WTA 500", winnerPoints: 500, winnerPrize: 520000, drawSize: 32, bestOf: 3, hasQualy: true, directEntryRank: 50, qualyEntryRank: 180 },
   "atp-250": { label: "ATP/WTA 250", winnerPoints: 250, winnerPrize: 110000, drawSize: 32, bestOf: 3, hasQualy: true, directEntryRank: 80, qualyEntryRank: 250 },
