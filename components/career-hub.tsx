@@ -8,7 +8,7 @@ import {
   addPointsEntry, recomputePoints, checkAnnualProgression, getExpiringPoints,
   type CareerState, type PointsEntry,
 } from "@/lib/career"
-import { upcomingTournaments, entryStatus, CATEGORY_INFO, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament, type Category } from "@/lib/calendar"
+import { upcomingTournaments, entryStatus, CATEGORY_INFO, bestOfForTour, pointsForResult, prizeForResult, getTournamentsOnDate, CATEGORY_PRIORITY, type Tournament, type Category } from "@/lib/calendar"
 import { getRankings, evolveRoster } from "@/lib/rivals"
 import { simulateFullMatch, createMatchState, playPoint, playGame, playSet, formatMatchScore, type MatchState, type MatchConfig, randomSeed } from "@/lib/match-engine"
 import type { PlayerProfile, Rival } from "@/lib/types"
@@ -1165,7 +1165,7 @@ const [spectatorResult, setSpectatorResult] = useState<string | null>(null)
     return
   }
   const status = entryStatus(t.category, playerRank)
-  const bestOf = CATEGORY_INFO[t.category].bestOf
+  const bestOf = bestOfForTour(t.category, career.player.tour)
 
   // Si ya tenemos progreso guardado de este torneo (jugado o espectado a medias), lo retomamos
   if (career.tournamentResults[t.id]) {
@@ -1302,7 +1302,7 @@ function revealMatch(matchId: string) {
     if (!activeMatch || !selectedT) return
     const userWon = state.winner === activeMatch.userIs
     const score = formatMatchScore(state, activeMatch.userIs)
-    const bestOf = CATEGORY_INFO[selectedT.category].bestOf
+    const bestOf = bestOfForTour(selectedT.category, career.player.tour)
 
     const info = CATEGORY_INFO[selectedT.category]
     const currentRound = drawMatches.filter(m => m.round === Math.max(...drawMatches.map(x => x.round))).length > 0
@@ -1506,7 +1506,7 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
 
   function handleSimularRonda() {
   if (!selectedT) return
-  const bestOf = CATEGORY_INFO[selectedT.category].bestOf
+  const bestOf = bestOfForTour(selectedT.category, career.player.tour)
 
   if (selectedT.category === "atp-finals") {
     let current = drawMatches
@@ -1614,8 +1614,8 @@ const xpGained = userWon ? XP_REWARDS.win : XP_REWARDS.loss
           : buildDraw(t, rivsForDraw, userRivalForSim, false)
 
         matches = t.category === "atp-finals"
-          ? simulateRoundRobinToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
-          : simulateToChampion(matches, t.surface, CATEGORY_INFO[t.category].bestOf, t.category)
+          ? simulateRoundRobinToChampion(matches, t.surface, bestOfForTour(t.category, prev.player.tour), t.category)
+          : simulateToChampion(matches, t.surface, bestOfForTour(t.category, prev.player.tour), t.category)
 
         tournamentResults[t.id] = matches
         rivalBonusHistory = computeTournamentPointsBonus(matches, t.category, rivalBonusHistory, weekEnding)
@@ -2571,7 +2571,7 @@ function SeasonSummaryModal({ stats, onClose }: {
                   variant="outline"
                   onClick={() => {
                     setAutoSimulate(true)
-                    const bestOf = CATEGORY_INFO[selectedT.category].bestOf
+                    const bestOf = bestOfForTour(selectedT.category, career.player.tour)
                     const finished = selectedT.category === "atp-finals"
                       ? simulateRoundRobinToChampion(drawMatches, selectedT.surface, bestOf, selectedT.category)
                       : simulateToChampion(drawMatches, selectedT.surface, bestOf, selectedT.category)
@@ -2667,7 +2667,7 @@ function SeasonSummaryModal({ stats, onClose }: {
     player1: m.p1,
     player2: m.p2,
     surface: selectedT.surface as any,
-    bestOf: CATEGORY_INFO[selectedT.category].bestOf,
+    bestOf: bestOfForTour(selectedT.category, career.player.tour),
     finalSetTiebreak: true,
     finalSetTiebreakAt: finalSetTiebreakAtFor(selectedT.category),
   }
